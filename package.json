@@ -2,7 +2,7 @@
   "name": "flowbudget",
   "private": true,
   "version": "0.1.0",
-  "author": "Izitec",
+  "author": "Izitec <support@flowbudget.app>",
   "repository": "https://github.com/OtavioIzidoro/FlowBudgetFront.git",
   "description": "FlowBudget — Smart Financial Control by Izitec",
   "main": "electron/main.cjs",
