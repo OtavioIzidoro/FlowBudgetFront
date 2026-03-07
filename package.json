@@ -2,6 +2,7 @@
   "name": "flowbudget",
   "private": true,
   "version": "0.1.0",
+  "author": "Izitec",
   "repository": "https://github.com/OtavioIzidoro/FlowBudgetFront.git",
   "description": "FlowBudget — Smart Financial Control by Izitec",
   "main": "electron/main.cjs",
@@ -64,8 +65,7 @@
       "category": "public.app-category.finance"
     },
     "win": {
-      "target": ["nsis", "portable"],
-      "category": "Finance"
+      "target": ["nsis", "portable"]
     },
     "publish": {
       "provider": "github",
