@@ -16,7 +16,7 @@
     "test:e2e": "playwright test",
     "test:e2e:ui": "playwright test --ui",
     "electron:dev": "concurrently \"vite\" \"wait-on http://localhost:5173 && electron .\"",
-    "electron:build": "npm run build && electron-builder"
+    "electron:build": "npm run build && mkdir -p build && cp public/assets/logo.png build/icon.png && electron-builder"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.9.0",
@@ -51,21 +51,22 @@
     "appId": "app.flowbudget.izitec",
     "productName": "FlowBudget",
     "directories": {
-      "output": "release"
+      "output": "release",
+      "buildResources": "build"
     },
     "files": ["dist/**/*", "electron/**/*", "package.json"],
-    "publish": {
-      "provider": "github",
-      "vPrefixedTagName": true
-    }
-  },
-  "build": {
-    "appId": "app.flowbudget.izitec",
-    "productName": "FlowBudget",
-    "directories": {
-      "output": "release"
+    "linux": {
+      "target": ["AppImage", "deb"],
+      "category": "Finance"
     },
-    "files": ["dist/**/*", "electron/**/*", "package.json"],
+    "mac": {
+      "target": ["dmg", "zip"],
+      "category": "public.app-category.finance"
+    },
+    "win": {
+      "target": ["nsis", "portable"],
+      "category": "Finance"
+    },
     "publish": {
       "provider": "github",
       "vPrefixedTagName": true

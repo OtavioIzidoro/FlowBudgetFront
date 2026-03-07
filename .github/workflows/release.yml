@@ -7,7 +7,16 @@ on:
 
 jobs:
   release:
-    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        include:
+          - os: ubuntu-latest
+            platform: linux
+          - os: macos-latest
+            platform: mac
+          - os: windows-latest
+            platform: win
+    runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
 
@@ -20,7 +29,14 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Build and publish
-        run: npm run build && npx electron-builder --linux --publish always
+      - name: Build app
+        run: npm run build
+
+      - name: Prepare icon
+        run: node -e "require('fs').mkdirSync('build',{recursive:true});require('fs').copyFileSync('public/assets/logo.png','build/icon.png')"
+
+      - name: Build and publish (${{ matrix.platform }})
+        run: npx electron-builder --${{ matrix.platform }} --publish always
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          CSC_IDENTITY_AUTO_DISCOVERY: false
