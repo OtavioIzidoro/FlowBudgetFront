@@ -1,0 +1,128 @@
+import { useForm } from 'react-hook-form';
+import { z } from 'zod';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { useAuthStore } from '@/shared/store/auth-store';
+import { Link } from '@tanstack/react-router';
+import { useUserPreferencesStore } from '@/shared/store/user-preferences-store';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/shared/ui/card';
+import { Button } from '@/shared/ui/button';
+import { Input } from '@/shared/ui/input';
+import { Label } from '@/shared/ui/label';
+import { Switch } from '@/shared/ui/switch';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/shared/ui/select';
+import { useEffect } from 'react';
+import { useTheme } from '@/shared/hooks/use-theme';
+import { KeyRound } from 'lucide-react';
+import type { UserPreferences } from '@/entities/user/types';
+
+const profileSchema = z.object({
+  name: z.string().min(1, 'Informe o nome'),
+  email: z.string().min(1, 'Informe o e-mail').email('E-mail inválido'),
+});
+
+type ProfileFormData = z.infer<typeof profileSchema>;
+
+export function ProfilePage() {
+  const user = useAuthStore((s) => s.user);
+  const { theme, setTheme, notificationsEnabled, setNotificationsEnabled } =
+    useUserPreferencesStore();
+  const { setTheme: applyTheme } = useTheme();
+
+  const { register, handleSubmit, reset } = useForm<ProfileFormData>({
+    resolver: zodResolver(profileSchema),
+    defaultValues: { name: user?.name ?? '', email: user?.email ?? '' },
+  });
+
+  useEffect(() => {
+    if (user) {
+      reset({ name: user.name, email: user.email });
+    }
+  }, [user, reset]);
+
+  return (
+    <div className="space-y-6 p-6">
+      <h1 className="text-2xl font-bold">Perfil</h1>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Dados do usuário</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <form onSubmit={handleSubmit(() => {})} className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="name">Nome</Label>
+              <Input id="name" {...register('name')} />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="email">E-mail</Label>
+              <Input id="email" type="email" {...register('email')} />
+            </div>
+            <Button type="submit" disabled>
+              Salvar (indisponível em modo demo)
+            </Button>
+          </form>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Segurança</CardTitle>
+          <CardDescription>Altere sua senha de acesso.</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <Button variant="outline" asChild>
+            <Link to={'/change-password' as '/'}>
+              <KeyRound className="mr-2 h-4 w-4" />
+              Trocar senha
+            </Link>
+          </Button>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Preferências</CardTitle>
+          <CardDescription>Tema e notificações.</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-6">
+          <div className="space-y-2">
+            <Label>Tema</Label>
+            <Select
+              value={theme}
+              onValueChange={(v) => {
+                const value = v as UserPreferences['theme'];
+                setTheme(value);
+                applyTheme(value);
+              }}
+            >
+              <SelectTrigger className="w-[180px]">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="light">Claro</SelectItem>
+                <SelectItem value="dark">Escuro</SelectItem>
+                <SelectItem value="system">Sistema</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="flex items-center space-x-2">
+            <Switch
+              id="notifications"
+              checked={notificationsEnabled}
+              onCheckedChange={(checked) => setNotificationsEnabled(checked)}
+            />
+            <Label htmlFor="notifications" className="font-normal">
+              Habilitar notificações
+            </Label>
+          </div>
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
