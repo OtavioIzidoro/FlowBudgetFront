@@ -2,7 +2,9 @@ const { app, BrowserWindow, ipcMain } = require('electron');
 const path = require('path');
 const { autoUpdater } = require('electron-updater');
 
-const isDev = process.env.NODE_ENV !== 'production' || process.env.ELECTRON_DEV;
+const isDev =
+  !app.isPackaged &&
+  (process.env.NODE_ENV !== 'production' || process.env.ELECTRON_DEV);
 
 let mainWindow = null;
 

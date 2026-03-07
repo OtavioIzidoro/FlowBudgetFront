@@ -9,7 +9,7 @@ export async function getTransactions(params?: {
   page?: number;
   limit?: number;
 }): Promise<Transaction[]> {
-  const res = await apiRequest<Transaction[]>('/transactions', {
+  const res = await apiRequest<Transaction[] | { data: Transaction[] }>('/transactions', {
     params: {
       type: params?.type,
       search: params?.search,
@@ -18,7 +18,11 @@ export async function getTransactions(params?: {
       limit: params?.limit ?? 100,
     },
   });
-  return Array.isArray(res) ? res : [];
+  if (Array.isArray(res)) return res;
+  if (res && typeof res === 'object' && 'data' in res && Array.isArray((res as { data: Transaction[] }).data)) {
+    return (res as { data: Transaction[] }).data;
+  }
+  return [];
 }
 
 export async function getTransactionById(id: string): Promise<Transaction | null> {
