@@ -11,6 +11,7 @@ const isDev =
 let mainWindow = null;
 let localServer = null;
 let localServerUrl = null;
+const LOCAL_APP_HOST = 'localhost';
 
 const MIME_TYPES = {
   '.css': 'text/css; charset=utf-8',
@@ -28,7 +29,7 @@ const MIME_TYPES = {
 function resolveDistFilePath(requestUrl) {
   const distDir = path.join(__dirname, '../dist');
   const indexPath = path.join(distDir, 'index.html');
-  const parsedUrl = new URL(requestUrl, 'http://127.0.0.1');
+  const parsedUrl = new URL(requestUrl, `http://${LOCAL_APP_HOST}`);
   const normalizedPath = decodeURIComponent(parsedUrl.pathname === '/' ? '/index.html' : parsedUrl.pathname);
   const relativePath = normalizedPath.replace(/^\/+/, '');
   const candidatePath = path.normalize(path.join(distDir, relativePath));
@@ -74,13 +75,13 @@ function startLocalServer() {
     });
 
     localServer.once('error', reject);
-    localServer.listen(0, '127.0.0.1', () => {
+    localServer.listen(0, LOCAL_APP_HOST, () => {
       const address = localServer.address();
       if (!address || typeof address === 'string') {
         reject(new Error('Não foi possível iniciar o servidor local do aplicativo.'));
         return;
       }
-      localServerUrl = `http://127.0.0.1:${address.port}`;
+      localServerUrl = `http://${LOCAL_APP_HOST}:${address.port}`;
       resolve(localServerUrl);
     });
   });
