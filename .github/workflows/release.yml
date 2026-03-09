@@ -65,10 +65,12 @@ jobs:
           npx electron-builder --linux --publish never
           shopt -s nullglob
           files=()
-          for file in release/*; do
-            if [ -f "$file" ]; then
-              files+=("$file")
-            fi
+          for pattern in "release/*.AppImage" "release/*.deb" "release/latest-linux.yml" "release/*.AppImage.blockmap"; do
+            for file in $pattern; do
+              if [ -f "$file" ]; then
+                files+=("$file")
+              fi
+            done
           done
           if [ ${#files[@]} -eq 0 ]; then
             echo "Nenhum artefato de release foi gerado."
@@ -97,10 +99,12 @@ jobs:
           npx electron-builder --mac dmg zip --publish never
           shopt -s nullglob
           files=()
-          for file in release/*; do
-            if [ -f "$file" ]; then
-              files+=("$file")
-            fi
+          for pattern in "release/*.dmg" "release/*.zip" "release/latest-mac.yml" "release/*.zip.blockmap"; do
+            for file in $pattern; do
+              if [ -f "$file" ]; then
+                files+=("$file")
+              fi
+            done
           done
           if [ ${#files[@]} -eq 0 ]; then
             echo "Nenhum artefato de release foi gerado."
@@ -126,10 +130,12 @@ jobs:
           npx electron-builder --win --publish never
           shopt -s nullglob
           files=()
-          for file in release/*; do
-            if [ -f "$file" ]; then
-              files+=("$file")
-            fi
+          for pattern in "release/* Setup *.exe" "release/FlowBudget *.exe" "release/latest*.yml" "release/*.exe.blockmap"; do
+            for file in $pattern; do
+              if [ -f "$file" ]; then
+                files+=("$file")
+              fi
+            done
           done
           if [ ${#files[@]} -eq 0 ]; then
             echo "Nenhum artefato de release foi gerado."
