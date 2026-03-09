@@ -92,7 +92,7 @@ jobs:
             echo "Building unsigned mac release"
             unset CSC_LINK CSC_KEY_PASSWORD APPLE_ID APPLE_APP_SPECIFIC_PASSWORD APPLE_TEAM_ID
           fi
-          npx electron-builder --mac --publish never
+          npx electron-builder --mac dmg zip --publish never
           shopt -s nullglob
           files=()
           for file in release/*; do
