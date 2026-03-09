@@ -13,6 +13,7 @@ import { NotificationsPage } from '@/features/notifications/notifications-page';
 import { ProjectionsPage } from '@/features/projections/projections-page';
 import { ProfilePage } from '@/features/profile/profile-page';
 import { CreateUserPage } from '@/features/admin/create-user-page';
+import { UsersPage } from '@/features/admin/users-page';
 import { ChangePasswordPage } from '@/features/auth/change-password-page';
 import { BillsPage } from '@/features/bills/bills-page';
 import { useAuthStore } from '@/shared/store/auth-store';
@@ -97,6 +98,12 @@ const createUserRoute = createRoute({
   component: CreateUserPage,
 });
 
+const usersRoute = createRoute({
+  getParentRoute: () => authenticatedRoute,
+  path: '/admin/users',
+  component: UsersPage,
+});
+
 const changePasswordRoute = createRoute({
   getParentRoute: () => authenticatedRoute,
   path: '/change-password',
@@ -112,6 +119,7 @@ authenticatedRoute.addChildren([
   notificationsRoute,
   projectionsRoute,
   profileRoute,
+  usersRoute,
   createUserRoute,
   changePasswordRoute,
 ]);

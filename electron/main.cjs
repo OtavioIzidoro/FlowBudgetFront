@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain, Notification } = require('electron');
+const { app, BrowserWindow, ipcMain, Notification, safeStorage } = require('electron');
 const fs = require('fs');
 const http = require('http');
 const path = require('path');
@@ -12,6 +12,7 @@ let mainWindow = null;
 let localServer = null;
 let localServerUrl = null;
 const LOCAL_APP_HOST = 'localhost';
+const REMEMBERED_LOGIN_FILE = 'remembered-login.bin';
 
 const MIME_TYPES = {
   '.css': 'text/css; charset=utf-8',
@@ -93,6 +94,75 @@ function getAppIconPath() {
     : path.join(__dirname, '../dist/assets/logo.png');
 }
 
+function getRememberedLoginFilePath() {
+  return path.join(app.getPath('userData'), REMEMBERED_LOGIN_FILE);
+}
+
+function clearRememberedLogin() {
+  try {
+    const filePath = getRememberedLoginFilePath();
+    if (fs.existsSync(filePath)) {
+      fs.unlinkSync(filePath);
+    }
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function getRememberedLogin() {
+  try {
+    if (!safeStorage.isEncryptionAvailable()) {
+      return null;
+    }
+
+    const filePath = getRememberedLoginFilePath();
+    if (!fs.existsSync(filePath)) {
+      return null;
+    }
+
+    const encrypted = fs.readFileSync(filePath);
+    const decrypted = safeStorage.decryptString(encrypted);
+    const parsed = JSON.parse(decrypted);
+
+    if (!parsed || typeof parsed.email !== 'string' || typeof parsed.password !== 'string') {
+      return null;
+    }
+
+    return {
+      email: parsed.email,
+      password: parsed.password,
+    };
+  } catch {
+    return null;
+  }
+}
+
+function saveRememberedLogin(payload) {
+  try {
+    if (
+      !safeStorage.isEncryptionAvailable() ||
+      !payload ||
+      typeof payload.email !== 'string' ||
+      typeof payload.password !== 'string'
+    ) {
+      return false;
+    }
+
+    const filePath = getRememberedLoginFilePath();
+    const encrypted = safeStorage.encryptString(
+      JSON.stringify({
+        email: payload.email,
+        password: payload.password,
+      })
+    );
+    fs.writeFileSync(filePath, encrypted);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 async function createWindow() {
   const iconPath = getAppIconPath();
   mainWindow = new BrowserWindow({
@@ -169,6 +239,18 @@ ipcMain.handle('electron-show-notification', (_, payload) => {
 
   notification.show();
   return true;
+});
+
+ipcMain.handle('electron-get-remembered-login', () => {
+  return getRememberedLogin();
+});
+
+ipcMain.handle('electron-save-remembered-login', (_, payload) => {
+  return saveRememberedLogin(payload);
+});
+
+ipcMain.handle('electron-clear-remembered-login', () => {
+  return clearRememberedLogin();
 });
 
 app.whenReady().then(async () => {

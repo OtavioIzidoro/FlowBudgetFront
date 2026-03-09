@@ -20,6 +20,7 @@ import {
 import { Plus, Pencil, Trash2 } from 'lucide-react';
 import { toServiceError } from '@/shared/lib/errors';
 import { appLogger } from '@/shared/logger';
+import { getCategoryIcon } from '@/shared/lib/category-icons';
 
 const ICON_OPTIONS = ['utensils', 'car', 'heart', 'briefcase', 'film', 'home', 'shopping-bag'];
 
@@ -74,41 +75,44 @@ export function CategoriesPage() {
             <p className="text-muted-foreground">Carregando...</p>
           ) : categories && categories.length > 0 ? (
             <ul className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
-              {categories.map((c) => (
-                <li
-                  key={c.id}
-                  className="flex items-center justify-between rounded-lg border p-4"
-                >
-                  <div className="flex items-center gap-3">
-                    <div
-                      className="h-10 w-10 rounded-full"
-                      style={{ backgroundColor: c.color }}
-                    />
+              {categories.map((c) => {
+                const Icon = getCategoryIcon(c.icon);
+
+                return (
+                  <li key={c.id} className="flex items-center justify-between rounded-lg border p-4">
+                    <div className="flex items-center gap-3">
+                      <div
+                        className="flex h-10 w-10 items-center justify-center rounded-full text-white"
+                        style={{ backgroundColor: c.color }}
+                      >
+                        <Icon className="h-5 w-5" aria-hidden="true" />
+                      </div>
                     <div>
                       <p className="font-medium">{c.name}</p>
-                      <p className="text-xs text-muted-foreground">{c.icon}</p>
+                        <p className="text-xs text-muted-foreground">{c.icon}</p>
+                      </div>
                     </div>
-                  </div>
-                  <div className="flex gap-1">
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={() => setEditingId(c.id)}
-                      aria-label="Editar"
-                    >
-                      <Pencil className="h-4 w-4" />
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={() => setDeletingId(c.id)}
-                      aria-label="Excluir"
-                    >
-                      <Trash2 className="h-4 w-4 text-destructive" />
-                    </Button>
-                  </div>
-                </li>
-              ))}
+                    <div className="flex gap-1">
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => setEditingId(c.id)}
+                        aria-label="Editar"
+                      >
+                        <Pencil className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => setDeletingId(c.id)}
+                        aria-label="Excluir"
+                      >
+                        <Trash2 className="h-4 w-4 text-destructive" />
+                      </Button>
+                    </div>
+                  </li>
+                );
+              })}
             </ul>
           ) : (
             <p className="text-muted-foreground">Nenhuma categoria cadastrada.</p>

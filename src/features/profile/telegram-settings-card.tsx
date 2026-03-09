@@ -6,6 +6,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { BellRing, Send, Unplug } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/shared/ui/card';
 import { Button } from '@/shared/ui/button';
+import { CurrencyInput } from '@/shared/ui/currency-input';
 import { Input } from '@/shared/ui/input';
 import { Label } from '@/shared/ui/label';
 import { Switch } from '@/shared/ui/switch';
@@ -20,6 +21,7 @@ import {
   updateTelegramPreferences,
   type UpdateTelegramPreferencesInput,
 } from '@/shared/services/telegram.service';
+import { formatCentsToCurrencyInput, parseCurrencyInputToCents } from '@/shared/lib/format';
 
 const telegramSchema = z.object({
   notifyNewExpense: z.boolean(),
@@ -32,19 +34,6 @@ const telegramSchema = z.object({
 });
 
 type TelegramFormData = z.infer<typeof telegramSchema>;
-
-function parseCurrencyToCents(value: string): number | null {
-  const normalized = value.trim().replace(/\./g, '').replace(',', '.');
-  if (!normalized) return null;
-  const parsed = Number(normalized);
-  if (Number.isNaN(parsed) || parsed < 0) return null;
-  return Math.round(parsed * 100);
-}
-
-function formatCentsToInput(value: number | null): string {
-  if (value == null || value <= 0) return '';
-  return (value / 100).toFixed(2).replace('.', ',');
-}
 
 export function TelegramSettingsCard() {
   const queryClient = useQueryClient();
@@ -72,7 +61,7 @@ export function TelegramSettingsCard() {
       notifyNewExpense: data.notifyNewExpense,
       notifyNewIncome: data.notifyNewIncome,
       notifyLowBalance: data.notifyLowBalance,
-      lowBalanceThreshold: formatCentsToInput(data.lowBalanceThresholdCents),
+      lowBalanceThreshold: formatCentsToCurrencyInput(data.lowBalanceThresholdCents, { emptyWhenZero: true }),
       notifyDailySummary: data.notifyDailySummary,
       dailySummaryTime: data.dailySummaryTime ?? '09:00',
       notifyAiInsights: data.notifyAiInsights,
@@ -116,12 +105,13 @@ export function TelegramSettingsCard() {
   const notifyDailySummary = watch('notifyDailySummary');
 
   const onSubmit = (formData: TelegramFormData) => {
+    const hasLowBalanceThreshold = formData.lowBalanceThreshold.trim().length > 0;
     const payload: UpdateTelegramPreferencesInput = {
       notifyNewExpense: formData.notifyNewExpense,
       notifyNewIncome: formData.notifyNewIncome,
       notifyLowBalance: formData.notifyLowBalance,
       lowBalanceThresholdCents: formData.notifyLowBalance
-        ? parseCurrencyToCents(formData.lowBalanceThreshold)
+        ? (hasLowBalanceThreshold ? parseCurrencyInputToCents(formData.lowBalanceThreshold) : null)
         : null,
       notifyDailySummary: formData.notifyDailySummary,
       dailySummaryTime: formData.notifyDailySummary ? formData.dailySummaryTime : null,
@@ -213,11 +203,18 @@ export function TelegramSettingsCard() {
 
               <div className="space-y-2">
                 <Label htmlFor="lowBalanceThreshold">Limite de saldo baixo (R$)</Label>
-                <Input
-                  id="lowBalanceThreshold"
-                  placeholder="Ex: 50,00"
-                  disabled={!data?.connected || !notifyLowBalance}
-                  {...register('lowBalanceThreshold')}
+                <Controller
+                  name="lowBalanceThreshold"
+                  control={control}
+                  render={({ field }) => (
+                    <CurrencyInput
+                      id="lowBalanceThreshold"
+                      placeholder="R$ 50,00"
+                      disabled={!data?.connected || !notifyLowBalance}
+                      value={field.value}
+                      onValueChange={field.onChange}
+                    />
+                  )}
                 />
               </div>
 

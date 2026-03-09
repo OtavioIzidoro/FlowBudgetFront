@@ -14,6 +14,11 @@ interface ElectronNotificationPayload {
   body?: string;
 }
 
+interface RememberedLoginPayload {
+  email: string;
+  password: string;
+}
+
 interface Window {
   electronAPI?: {
     platform: string;
@@ -22,5 +27,8 @@ interface Window {
     onUpdateError: (callback: (message: string) => void) => void;
     quitAndInstall: () => Promise<void>;
     showNotification: (payload: ElectronNotificationPayload) => Promise<boolean>;
+    getRememberedLogin: () => Promise<RememberedLoginPayload | null>;
+    saveRememberedLogin: (payload: RememberedLoginPayload) => Promise<boolean>;
+    clearRememberedLogin: () => Promise<boolean>;
   };
 }

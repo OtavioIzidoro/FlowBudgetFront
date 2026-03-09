@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { useForm } from 'react-hook-form';
+import { useForm, Controller } from 'react-hook-form';
 import { useMutation } from '@tanstack/react-query';
 import { createGoal, updateGoal } from '@/shared/services/goals.service';
 import type { Goal } from '@/entities/goal/types';
@@ -12,10 +12,13 @@ import {
   DialogTitle,
 } from '@/shared/ui/dialog';
 import { Button } from '@/shared/ui/button';
+import { CurrencyInput } from '@/shared/ui/currency-input';
 import { Input } from '@/shared/ui/input';
 import { Label } from '@/shared/ui/label';
 import { toServiceError } from '@/shared/lib/errors';
 import { appLogger } from '@/shared/logger';
+import { formatCentsToCurrencyInput, parseCurrencyInputToCents } from '@/shared/lib/format';
+import { getGoalPlan } from '@/shared/lib/financial-intelligence';
 
 const goalSchema = z.object({
   name: z.string().min(1, 'Informe o nome'),
@@ -25,12 +28,6 @@ const goalSchema = z.object({
 });
 
 type GoalFormData = z.infer<typeof goalSchema>;
-
-function parseValueToCents(value: string): number {
-  const normalized = value.replace(/\./g, '').replace(',', '.');
-  const num = parseFloat(normalized) || 0;
-  return Math.round(num * 100);
-}
 
 interface GoalFormDialogProps {
   open: boolean;
@@ -49,9 +46,9 @@ export function GoalFormDialog({
 
   const mutation = useMutation({
     mutationFn: (data: GoalFormData) => {
-      const targetAmount = parseValueToCents(data.targetAmount);
+      const targetAmount = parseCurrencyInputToCents(data.targetAmount);
       const currentAmount = data.currentAmount
-        ? parseValueToCents(data.currentAmount)
+        ? parseCurrencyInputToCents(data.currentAmount)
         : undefined;
       if (isEdit) {
         return updateGoal({
@@ -84,14 +81,14 @@ export function GoalFormDialog({
     },
   });
 
-  const { register, handleSubmit, formState: { errors } } = useForm<GoalFormData>({
+  const { register, handleSubmit, control, formState: { errors }, watch } = useForm<GoalFormData>({
     resolver: zodResolver(goalSchema),
     defaultValues: goal
       ? {
           name: goal.name,
-          targetAmount: (goal.targetAmount / 100).toFixed(2).replace('.', ','),
+          targetAmount: formatCentsToCurrencyInput(goal.targetAmount, { emptyWhenZero: true }),
           targetDate: goal.targetDate,
-          currentAmount: (goal.currentAmount / 100).toFixed(2).replace('.', ','),
+          currentAmount: formatCentsToCurrencyInput(goal.currentAmount, { emptyWhenZero: true }),
         }
       : {
           name: '',
@@ -102,6 +99,16 @@ export function GoalFormDialog({
           currentAmount: '',
         },
   });
+
+  const watchedTargetAmount = watch('targetAmount');
+  const watchedCurrentAmount = watch('currentAmount');
+  const watchedTargetDate = watch('targetDate');
+  const targetAmountCents = parseCurrencyInputToCents(watchedTargetAmount || '');
+  const currentAmountCents = parseCurrencyInputToCents(watchedCurrentAmount || '');
+  const goalPlan =
+    watchedTargetDate && targetAmountCents > 0
+      ? getGoalPlan(targetAmountCents, currentAmountCents, watchedTargetDate)
+      : null;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -122,7 +129,17 @@ export function GoalFormDialog({
             </div>
             <div className="space-y-2">
               <Label>Valor alvo (R$)</Label>
-              <Input placeholder="0,00" {...register('targetAmount')} />
+              <Controller
+                name="targetAmount"
+                control={control}
+                render={({ field }) => (
+                  <CurrencyInput
+                    placeholder="R$ 0,00"
+                    value={field.value}
+                    onValueChange={field.onChange}
+                  />
+                )}
+              />
               {errors.targetAmount && (
                 <p className="text-sm text-destructive">{errors.targetAmount.message}</p>
               )}
@@ -137,7 +154,26 @@ export function GoalFormDialog({
             {isEdit && (
               <div className="space-y-2">
                 <Label>Valor atual (R$)</Label>
-                <Input placeholder="0,00" {...register('currentAmount')} />
+                <Controller
+                  name="currentAmount"
+                  control={control}
+                  render={({ field }) => (
+                    <CurrencyInput
+                      placeholder="R$ 0,00"
+                      value={field.value}
+                      onValueChange={field.onChange}
+                    />
+                  )}
+                />
+              </div>
+            )}
+            {goalPlan && (
+              <div className="rounded-md border bg-muted/40 p-3 text-sm text-muted-foreground">
+                {goalPlan.status === 'achieved'
+                  ? 'A meta já está atingida com os valores informados.'
+                  : goalPlan.status === 'overdue'
+                    ? `Prazo vencido. Ainda faltam ${formatCentsToCurrencyInput(goalPlan.remainingAmount)} para concluir.`
+                    : `Cálculo inteligente: para chegar na data escolhida, o aporte sugerido é de ${formatCentsToCurrencyInput(goalPlan.recommendedMonthlyContribution)} por mês, ou cerca de ${formatCentsToCurrencyInput(goalPlan.dailyContribution)} por dia.`}
               </div>
             )}
           </div>

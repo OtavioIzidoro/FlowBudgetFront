@@ -73,6 +73,18 @@ export function LoginPage() {
     }
   });
 
+  const syncRememberedLogin = async (payload?: { email: string; password: string } | null) => {
+    try {
+      if (payload?.email && payload.password && window.electronAPI?.saveRememberedLogin) {
+        await window.electronAPI.saveRememberedLogin(payload);
+      } else if (window.electronAPI?.clearRememberedLogin) {
+        await window.electronAPI.clearRememberedLogin();
+      }
+    } catch {
+      //
+    }
+  };
+
   useEffect(() => {
     if (isAuthenticated) {
       const next = user?.passwordChangeRequired ? '/change-password' : '/dashboard';
@@ -103,6 +115,14 @@ export function LoginPage() {
       } catch {
         //
       }
+      void syncRememberedLogin(
+        variables.remember
+          ? {
+              email: variables.email,
+              password: variables.password,
+            }
+          : null
+      );
       const next = data.user.passwordChangeRequired ? '/change-password' : '/dashboard';
       navigate({ to: next as '/' });
     },
@@ -171,6 +191,7 @@ export function LoginPage() {
     formState: { errors },
     setError,
     watch,
+    reset,
   } = useForm<LoginFormData>({
     resolver: zodResolver(loginSchema),
     defaultValues: {
@@ -202,6 +223,27 @@ export function LoginPage() {
   const rememberValue = watch('remember');
 
   useEffect(() => {
+    const loadRememberedLogin = async () => {
+      try {
+        const rememberedLogin = await window.electronAPI?.getRememberedLogin?.();
+        if (!rememberedLogin?.email || !rememberedLogin.password) {
+          return;
+        }
+
+        reset({
+          email: rememberedLogin.email,
+          password: rememberedLogin.password,
+          remember: true,
+        });
+      } catch {
+        //
+      }
+    };
+
+    void loadRememberedLogin();
+  }, [reset]);
+
+  useEffect(() => {
     const normalizedEmail = emailValue?.trim().toLowerCase() ?? '';
     if (!passkeyAvailable || !normalizedEmail) return;
     if (normalizedEmail === promptedEmail) return;
@@ -230,6 +272,9 @@ export function LoginPage() {
           }
         } catch {
           //
+        }
+        if (!rememberValue) {
+          void syncRememberedLogin(null);
         }
       },
     });

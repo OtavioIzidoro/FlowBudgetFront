@@ -31,7 +31,10 @@ export async function login(credentials: LoginCredentials): Promise<AuthResponse
 
 export async function logout(): Promise<void> {
   try {
-    await apiRequest<{ success: boolean }>('/auth/logout', { method: 'POST' });
+    await apiRequest<{ success: boolean }>('/auth/logout', {
+      method: 'POST',
+      skipAuthRefresh: true,
+    });
   } catch {
     //
   }
@@ -40,6 +43,18 @@ export async function logout(): Promise<void> {
 
 export async function getCurrentUser(): Promise<User | null> {
   const data = await apiRequest<User | null>('/auth/me');
+  return data;
+}
+
+export async function refreshAuthSession(): Promise<AuthResponse> {
+  const data = await apiRequest<{ user: User; token: string }>('/auth/refresh', {
+    method: 'POST',
+    skipAuthRefresh: true,
+  });
+  appLogger.info('Sessão renovada com sucesso', {
+    domain: 'auth',
+    event: 'auth.refresh.success',
+  });
   return data;
 }
 

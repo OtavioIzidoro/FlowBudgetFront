@@ -5,6 +5,7 @@ import type { Goal } from '@/entities/goal/types';
 import { GoalFormDialog } from '@/features/goals/goal-form-dialog';
 import { GoalContributeDialog } from '@/features/goals/goal-contribute-dialog';
 import { formatCurrency } from '@/shared/lib/format';
+import { getGoalPlan } from '@/shared/lib/financial-intelligence';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { Card, CardContent, CardHeader, CardTitle } from '@/shared/ui/card';
@@ -60,6 +61,11 @@ export function GoalsPage() {
 
   const editingGoal = editingId ? goals?.find((g) => g.id === editingId) : undefined;
   const contributingGoal = contributingId ? goals?.find((g) => g.id === contributingId) : undefined;
+  const activeGoals = goals?.filter((goal) => goal.status === 'active') ?? [];
+  const totalSuggestedMonthlyContribution = activeGoals.reduce((total, goal) => {
+    const plan = getGoalPlan(goal.targetAmount, goal.currentAmount, goal.targetDate);
+    return plan.status === 'planned' ? total + plan.recommendedMonthlyContribution : total;
+  }, 0);
 
   return (
     <div className="space-y-6 p-6">
@@ -70,6 +76,19 @@ export function GoalsPage() {
           Nova meta
         </Button>
       </div>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Assistente inteligente de metas</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <p className="text-sm text-muted-foreground">
+            {activeGoals.length > 0
+              ? `Para manter suas metas ativas no prazo, o aporte sugerido total é de ${formatCurrency(totalSuggestedMonthlyContribution)} por mês.`
+              : 'Crie metas para receber cálculos inteligentes de aporte mensal e ritmo necessário.'}
+          </p>
+        </CardContent>
+      </Card>
 
       <Card>
         <CardHeader>
@@ -85,6 +104,7 @@ export function GoalsPage() {
                   g.targetAmount > 0
                     ? Math.min(100, (g.currentAmount / g.targetAmount) * 100)
                     : 0;
+                const goalPlan = getGoalPlan(g.targetAmount, g.currentAmount, g.targetDate);
                 return (
                   <li
                     key={g.id}
@@ -121,6 +141,13 @@ export function GoalsPage() {
                           style={{ width: `${pct}%` }}
                         />
                       </div>
+                      <p className="mt-2 text-xs text-muted-foreground">
+                        {goalPlan.status === 'achieved'
+                          ? 'Meta concluída. Agora é manter o resultado.'
+                          : goalPlan.status === 'overdue'
+                            ? `Meta vencida. Para recuperar, faltam ${formatCurrency(goalPlan.remainingAmount)}.`
+                            : `Sugestão inteligente: aportar cerca de ${formatCurrency(goalPlan.recommendedMonthlyContribution)}/mês pelos próximos ${goalPlan.monthsRemaining} mês(es).`}
+                      </p>
                     </div>
                     <div className="flex gap-1">
                       {g.status !== 'achieved' && (

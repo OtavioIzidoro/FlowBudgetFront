@@ -6,6 +6,8 @@ export interface CreateNotificationInput {
   title: string;
   message: string;
   scheduleFor?: string;
+  repeatCount?: number;
+  repeatIntervalMinutes?: number;
 }
 
 export async function createNotification(

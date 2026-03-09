@@ -2,7 +2,8 @@ export interface User {
   id: string;
   name: string;
   email: string;
-  role?: 'user' | 'super_admin';
+  role?: 'user' | 'admin' | 'super_admin';
+  status?: 'active' | 'inactive';
   passwordChangeRequired?: boolean;
   createdAt?: string;
   updatedAt?: string;

@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { useCallback } from 'react';
+import { useCallback, useEffect } from 'react';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useForm, Controller } from 'react-hook-form';
 import { useMutation, useQuery } from '@tanstack/react-query';
@@ -16,6 +16,7 @@ import {
   DialogTitle,
 } from '@/shared/ui/dialog';
 import { Button } from '@/shared/ui/button';
+import { CurrencyInput } from '@/shared/ui/currency-input';
 import { Input } from '@/shared/ui/input';
 import { Label } from '@/shared/ui/label';
 import {
@@ -30,7 +31,11 @@ import { appLogger } from '@/shared/logger';
 import { useToastStore } from '@/shared/store/toast-store';
 import { Spinner } from '@/shared/ui/spinner';
 import { Switch } from '@/shared/ui/switch';
-import { formatCurrency } from '@/shared/lib/format';
+import {
+  formatCentsToCurrencyInput,
+  formatCurrency,
+  parseCurrencyInputToCents,
+} from '@/shared/lib/format';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { getQuickTransactions, saveQuickTransaction } from '@/shared/lib/quick-transactions';
@@ -54,16 +59,31 @@ const transactionSchema = z.object({
 
 type TransactionFormData = z.infer<typeof transactionSchema>;
 
-function parseValueToCents(value: string): number {
-  const normalized = value.replace(/\./g, '').replace(',', '.');
-  const num = parseFloat(normalized) || 0;
-  return Math.round(num * 100);
-}
+function getDefaultValues(transaction?: Transaction): TransactionFormData {
+  if (transaction) {
+    return {
+      type: transaction.type,
+      value: formatCentsToCurrencyInput(transaction.value, { emptyWhenZero: true }),
+      categoryId: transaction.categoryId,
+      date: transaction.date,
+      status: transaction.status,
+      description: transaction.description ?? '',
+      installmentsTotal: transaction.installmentsTotal ?? 1,
+    };
+  }
 
-function formatCentsToInput(cents: number): string {
-  if (cents === 0) return '';
-  const reais = (cents / 100).toFixed(2).replace('.', ',');
-  return reais.replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+  return {
+    type: 'expense',
+    value: '',
+    categoryId: '',
+    date: new Date().toISOString().slice(0, 10),
+    status: 'completed',
+    description: '',
+    enableReminder: false,
+    reminderDays: 3,
+    saveAsQuick: false,
+    installmentsTotal: 1,
+  };
 }
 
 function buildReminderScheduleFor(date: string, remindBeforeDays: number): string {
@@ -81,7 +101,7 @@ interface TransactionFormDialogProps {
   onOpenChange: (open: boolean) => void;
   categories: Category[];
   transaction?: Transaction;
-  onSuccess: () => void;
+  onSuccess: (transaction: Transaction) => void | Promise<void>;
 }
 
 export function TransactionFormDialog({
@@ -97,38 +117,40 @@ export function TransactionFormDialog({
     mutationFn: async (data: TransactionFormData) => {
       const payload = {
         type: data.type as 'income' | 'expense',
-        value: parseValueToCents(data.value),
+        value: parseCurrencyInputToCents(data.value),
         categoryId: data.categoryId,
         date: data.date,
         status: data.status as Transaction['status'],
         description: data.description || undefined,
-        installmentsTotal: data.type === 'expense' ? data.installmentsTotal : undefined,
       };
       const t = isEdit
         ? await updateTransaction({ ...payload, id: transaction.id })
-        : await createTransaction(payload);
+        : await createTransaction({
+            ...payload,
+            installmentsTotal: data.type === 'expense' ? data.installmentsTotal : undefined,
+          });
       if (!isEdit && data.type === 'expense' && data.enableReminder) {
         const cat = categories.find((c) => c.id === data.categoryId);
         const days = data.reminderDays ?? 1;
         await createNotification({
           type: 'due_date',
           title: `Despesa vence em ${format(new Date(data.date), "dd/MM/yyyy", { locale: ptBR })}${days > 1 ? ` (lembrete ${days} dias antes)` : ''}`,
-          message: `${cat?.name ?? 'Despesa'} - ${formatCurrency(parseValueToCents(data.value))}${data.description ? ` - ${data.description}` : ''}`,
+          message: `${cat?.name ?? 'Despesa'} - ${formatCurrency(parseCurrencyInputToCents(data.value))}${data.description ? ` - ${data.description}` : ''}`,
           scheduleFor: buildReminderScheduleFor(data.date, days),
         });
       }
       if (!isEdit && data.saveAsQuick) {
         saveQuickTransaction({
           type: data.type as 'income' | 'expense',
-          value: parseValueToCents(data.value),
+          value: parseCurrencyInputToCents(data.value),
           categoryId: data.categoryId,
           description: data.description ?? '',
         });
       }
       return t;
     },
-    onSuccess: () => {
-      onSuccess();
+    onSuccess: (savedTransaction) => {
+      void onSuccess(savedTransaction);
       onOpenChange(false);
       useToastStore.getState().success(isEdit ? 'Transação atualizada.' : 'Transação criada.');
     },
@@ -144,31 +166,15 @@ export function TransactionFormDialog({
     },
   });
 
-  const { register, handleSubmit, control, formState: { errors }, watch, setValue } = useForm<TransactionFormData>({
+  const { register, handleSubmit, control, formState: { errors }, watch, setValue, reset } = useForm<TransactionFormData>({
     resolver: zodResolver(transactionSchema),
-    defaultValues: transaction
-      ? {
-          type: transaction.type,
-          value: formatCentsToInput(transaction.value),
-          categoryId: transaction.categoryId,
-          date: transaction.date,
-          status: transaction.status,
-          description: transaction.description ?? '',
-          installmentsTotal: transaction.installmentsTotal ?? 1,
-        }
-      : {
-          type: 'expense',
-          value: '',
-          categoryId: '',
-          date: new Date().toISOString().slice(0, 10),
-          status: 'completed',
-          description: '',
-          enableReminder: false,
-          reminderDays: 3,
-          saveAsQuick: false,
-          installmentsTotal: 1,
-        },
+    defaultValues: getDefaultValues(transaction),
   });
+
+  useEffect(() => {
+    if (!open) return;
+    reset(getDefaultValues(transaction));
+  }, [open, reset, transaction]);
 
   const quickList = getQuickTransactions();
   const descWatch = watch('description');
@@ -187,7 +193,7 @@ export function TransactionFormDialog({
   const applyQuick = useCallback(
     (qt: QuickTransaction) => {
       setValue('type', qt.type);
-      setValue('value', formatCentsToInput(qt.value));
+      setValue('value', formatCentsToCurrencyInput(qt.value, { emptyWhenZero: true }));
       setValue('categoryId', qt.categoryId);
       setValue('description', qt.description);
     },
@@ -253,9 +259,16 @@ export function TransactionFormDialog({
               </div>
               <div className="space-y-2">
                 <Label>Valor (R$)</Label>
-                <Input
-                  placeholder="0,00"
-                  {...register('value')}
+                <Controller
+                  name="value"
+                  control={control}
+                  render={({ field }) => (
+                    <CurrencyInput
+                      placeholder="R$ 0,00"
+                      value={field.value}
+                      onValueChange={field.onChange}
+                    />
+                  )}
                 />
                 {errors.value && (
                   <p className="text-sm text-destructive">{errors.value.message}</p>

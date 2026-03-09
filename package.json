@@ -1,7 +1,7 @@
 {
   "name": "flowbudget",
   "private": true,
-  "version": "0.1.15",
+  "version": "0.1.16",
   "author": "Izitec <support@flowbudget.app>",
   "repository": "https://github.com/OtavioIzidoro/FlowBudgetFront.git",
   "description": "FlowBudget — Smart Financial Control by Izitec",
@@ -57,13 +57,22 @@
       "output": "release",
       "buildResources": "build"
     },
-    "files": ["dist/**/*", "electron/**/*", "package.json"],
+    "files": [
+      "dist/**/*",
+      "electron/**/*",
+      "package.json"
+    ],
     "linux": {
-      "target": ["AppImage", "deb"],
+      "target": [
+        "AppImage",
+        "deb"
+      ],
       "category": "Finance"
     },
     "mac": {
-      "target": ["zip"],
+      "target": [
+        "zip"
+      ],
       "category": "public.app-category.finance",
       "hardenedRuntime": true,
       "gatekeeperAssess": false,
@@ -71,7 +80,10 @@
       "entitlementsInherit": "build-resources/entitlements.mac.plist"
     },
     "win": {
-      "target": ["nsis", "portable"],
+      "target": [
+        "nsis",
+        "portable"
+      ],
       "icon": "build/icon.png",
       "signAndEditExecutable": true
     },

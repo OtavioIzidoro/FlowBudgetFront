@@ -46,6 +46,11 @@ import { appLogger } from '@/shared/logger';
 import { useToastStore } from '@/shared/store/toast-store';
 import { Skeleton } from '@/shared/ui/skeleton';
 import {
+  invalidateTransactionRelatedQueries,
+  removeTransactionFromQueries,
+  upsertTransactionInQueries,
+} from '@/shared/lib/query-invalidation';
+import {
   BarChart,
   Bar,
   XAxis,
@@ -105,6 +110,8 @@ export function TransactionsPage() {
   const [creating, setCreating] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [creatingRecurring, setCreatingRecurring] = useState(false);
+  const [editingRecurringId, setEditingRecurringId] = useState<string | null>(null);
+  const [updatingTransactionId, setUpdatingTransactionId] = useState<string | null>(null);
 
   useEffect(() => {
     if (openFromFab) setCreating(true);
@@ -139,11 +146,31 @@ export function TransactionsPage() {
   const updateMutation = useMutation({
     mutationFn: (payload: { id: string; status: TransactionStatus }) =>
       updateTransaction({ id: payload.id, status: payload.status }),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['transactions'] });
+    onMutate: async (payload) => {
+      setUpdatingTransactionId(payload.id);
+      const previousQueries = queryClient.getQueriesData<{ id: string; status: TransactionStatus }[]>({
+        queryKey: ['transactions'],
+      });
+
+      queryClient.setQueriesData(
+        { queryKey: ['transactions'] },
+        (old: { id: string; status: TransactionStatus }[] | undefined) =>
+          old?.map((item) =>
+            item.id === payload.id ? { ...item, status: payload.status } : item
+          ) ?? old
+      );
+
+      return { previousQueries };
+    },
+    onSuccess: async (updatedTransaction) => {
+      upsertTransactionInQueries(queryClient, updatedTransaction);
+      await invalidateTransactionRelatedQueries(queryClient);
       useToastStore.getState().success('Status atualizado.');
     },
-    onError: (error: unknown) => {
+    onError: (error: unknown, _variables, context) => {
+      context?.previousQueries.forEach(([queryKey, queryData]) => {
+        queryClient.setQueryData(queryKey, queryData);
+      });
       const err = toServiceError(error);
       appLogger.error('Erro ao atualizar status', {
         domain: 'transaction',
@@ -152,6 +179,9 @@ export function TransactionsPage() {
         error: err.message,
       });
       useToastStore.getState().error(err.message);
+    },
+    onSettled: () => {
+      setUpdatingTransactionId(null);
     },
   });
 
@@ -197,8 +227,9 @@ export function TransactionsPage() {
   const confirmRecurringMutation = useMutation({
     mutationFn: ({ template, yearMonth }: { template: RecurringTemplate; yearMonth: string }) =>
       confirmRecurringForMonth(template, yearMonth),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['transactions'] });
+    onSuccess: async (createdTransaction) => {
+      upsertTransactionInQueries(queryClient, createdTransaction);
+      await invalidateTransactionRelatedQueries(queryClient);
       useToastStore.getState().success('Transação criada. Confirme se recebeu/pagou na listagem.');
     },
     onError: (error: unknown) => {
@@ -229,8 +260,9 @@ export function TransactionsPage() {
 
   const deleteMutation = useMutation({
     mutationFn: deleteTransaction,
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['transactions'] });
+    onSuccess: async (_data, deletedTransactionId) => {
+      removeTransactionFromQueries(queryClient, deletedTransactionId);
+      await invalidateTransactionRelatedQueries(queryClient);
       setDeletingId(null);
       useToastStore.getState().success('Transação removida.');
     },
@@ -247,6 +279,9 @@ export function TransactionsPage() {
   });
 
   const categoryMap = new Map(categories?.map((c) => [c.id, c]) ?? []);
+  const editingRecurringTemplate = editingRecurringId
+    ? recurringTemplates?.find((template) => template.id === editingRecurringId)
+    : undefined;
 
   const chartDataByCategory = (() => {
     if (!filteredTransactions.length || !categories?.length) return [];
@@ -444,11 +479,24 @@ export function TransactionsPage() {
                         {catName}
                         {tpl.description ? ` • ${tpl.description}` : ''}
                       </span>
+                      {tpl.autoCreateOnDueDate && (
+                        <span className="ml-2 text-xs font-medium text-primary">
+                          Automática no dia
+                        </span>
+                      )}
                       <span className="text-muted-foreground text-sm ml-2">
                         (dia {tpl.dayOfMonth})
                       </span>
                     </div>
                     <div className="flex gap-2">
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => setEditingRecurringId(tpl.id)}
+                        aria-label="Editar recorrência"
+                      >
+                        <Pencil className="h-4 w-4" />
+                      </Button>
                       {confirmed ? (
                         <span className="text-sm text-green-600 flex items-center gap-1">
                           <Check className="h-4 w-4" />
@@ -466,7 +514,7 @@ export function TransactionsPage() {
                             })
                           }
                         >
-                          Confirmar recebimento
+                          {tpl.autoCreateOnDueDate ? 'Efetivar agora' : 'Confirmar recebimento'}
                         </Button>
                       )}
                       <Button
@@ -579,7 +627,7 @@ export function TransactionsPage() {
                         {t.status !== 'cancelled' ? (
                           <Switch
                             checked={t.status === 'completed'}
-                            disabled={updateMutation.isPending}
+                            disabled={updateMutation.isPending && updatingTransactionId === t.id}
                             onCheckedChange={(checked) =>
                               updateMutation.mutate({
                                 id: t.id,
@@ -645,18 +693,21 @@ export function TransactionsPage() {
 
       {creating && (
         <TransactionFormDialog
+          key="create-transaction"
           open={creating}
           onOpenChange={(open) => setCreating(open)}
           categories={categories ?? []}
-          onSuccess={() => {
+          onSuccess={async (savedTransaction) => {
+            upsertTransactionInQueries(queryClient, savedTransaction);
             setCreating(false);
-            queryClient.invalidateQueries({ queryKey: ['transactions'] });
+            await invalidateTransactionRelatedQueries(queryClient);
           }}
         />
       )}
 
       {creatingRecurring && (
         <RecurringFormDialog
+          key="create-recurring"
           open={creatingRecurring}
           onOpenChange={setCreatingRecurring}
           categories={categories ?? []}
@@ -669,13 +720,29 @@ export function TransactionsPage() {
 
       {editingId && transactions && (
         <TransactionFormDialog
+          key={editingId}
           open={!!editingId}
           onOpenChange={(open) => !open && setEditingId(null)}
           categories={categories ?? []}
           transaction={transactions.find((t) => t.id === editingId) ?? undefined}
-          onSuccess={() => {
+          onSuccess={async (savedTransaction) => {
+            upsertTransactionInQueries(queryClient, savedTransaction);
             setEditingId(null);
-            queryClient.invalidateQueries({ queryKey: ['transactions'] });
+            await invalidateTransactionRelatedQueries(queryClient);
+          }}
+        />
+      )}
+
+      {editingRecurringTemplate && (
+        <RecurringFormDialog
+          key={editingRecurringTemplate.id}
+          open={!!editingRecurringId}
+          onOpenChange={(open) => !open && setEditingRecurringId(null)}
+          categories={categories ?? []}
+          recurringTemplate={editingRecurringTemplate}
+          onSuccess={() => {
+            setEditingRecurringId(null);
+            queryClient.invalidateQueries({ queryKey: ['recurring-templates'] });
           }}
         />
       )}

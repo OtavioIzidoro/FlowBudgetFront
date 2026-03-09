@@ -10,6 +10,7 @@ import { CalendarCheck } from 'lucide-react';
 import { toServiceError } from '@/shared/lib/errors';
 import { useToastStore } from '@/shared/store/toast-store';
 import { appLogger } from '@/shared/logger';
+import { invalidateTransactionRelatedQueries } from '@/shared/lib/query-invalidation';
 
 function getMonthKey(date: Date): string {
   const y = date.getFullYear();
@@ -34,8 +35,8 @@ export function BillsPage() {
   const updateMutation = useMutation({
     mutationFn: (payload: { id: string; status: 'pending' | 'completed' }) =>
       updateTransaction({ id: payload.id, status: payload.status }),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['transactions'] });
+    onSuccess: async () => {
+      await invalidateTransactionRelatedQueries(queryClient);
       useToastStore.getState().success('Status atualizado.');
     },
     onError: (error: unknown) => {

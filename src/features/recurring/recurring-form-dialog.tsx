@@ -1,8 +1,12 @@
+import { useEffect } from 'react';
 import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useForm, Controller } from 'react-hook-form';
 import { useMutation } from '@tanstack/react-query';
-import { createRecurringTemplate } from '@/shared/services/recurring.service';
+import {
+  createRecurringTemplate,
+  updateRecurringTemplate,
+} from '@/shared/services/recurring.service';
 import type { RecurringTemplate } from '@/entities/recurring-template/types';
 import type { Category } from '@/entities/category/types';
 import {
@@ -13,6 +17,7 @@ import {
   DialogTitle,
 } from '@/shared/ui/dialog';
 import { Button } from '@/shared/ui/button';
+import { CurrencyInput } from '@/shared/ui/currency-input';
 import { Input } from '@/shared/ui/input';
 import { Label } from '@/shared/ui/label';
 import {
@@ -26,6 +31,11 @@ import { toServiceError } from '@/shared/lib/errors';
 import { appLogger } from '@/shared/logger';
 import { useToastStore } from '@/shared/store/toast-store';
 import { Spinner } from '@/shared/ui/spinner';
+import {
+  formatCentsToCurrencyInput,
+  parseCurrencyInputToCents,
+} from '@/shared/lib/format';
+import { Switch } from '@/shared/ui/switch';
 
 const recurringSchema = z.object({
   type: z.enum(['income', 'expense']),
@@ -36,20 +46,38 @@ const recurringSchema = z.object({
     .transform((v) => (Number.isNaN(v) ? 1 : v))
     .pipe(z.number().int().min(1, 'Dia entre 1 e 31').max(31, 'Dia entre 1 e 31')),
   description: z.string().optional(),
+  autoCreateOnDueDate: z.boolean().optional(),
 });
 
 type RecurringFormData = z.infer<typeof recurringSchema>;
 
-function parseValueToCents(value: string): number {
-  const normalized = value.replace(/\./g, '').replace(',', '.');
-  const num = parseFloat(normalized) || 0;
-  return Math.round(num * 100);
+function getDefaultValues(recurringTemplate?: RecurringTemplate): RecurringFormData {
+  if (recurringTemplate) {
+    return {
+      type: recurringTemplate.type,
+      value: formatCentsToCurrencyInput(recurringTemplate.value, { emptyWhenZero: true }),
+      categoryId: recurringTemplate.categoryId,
+      dayOfMonth: recurringTemplate.dayOfMonth,
+      description: recurringTemplate.description ?? '',
+      autoCreateOnDueDate: recurringTemplate.autoCreateOnDueDate ?? false,
+    };
+  }
+
+  return {
+    type: 'income',
+    value: '',
+    categoryId: '',
+    dayOfMonth: 1,
+    description: '',
+    autoCreateOnDueDate: false,
+  };
 }
 
 interface RecurringFormDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   categories: Category[];
+  recurringTemplate?: RecurringTemplate;
   onSuccess: () => void;
 }
 
@@ -57,28 +85,36 @@ export function RecurringFormDialog({
   open,
   onOpenChange,
   categories,
+  recurringTemplate,
   onSuccess,
 }: RecurringFormDialogProps) {
+  const isEdit = !!recurringTemplate;
+
   const mutation = useMutation({
     mutationFn: async (data: RecurringFormData) => {
-      return createRecurringTemplate({
+      const payload = {
         type: data.type as RecurringTemplate['type'],
-        value: parseValueToCents(data.value),
+        value: parseCurrencyInputToCents(data.value),
         categoryId: data.categoryId,
         dayOfMonth: data.dayOfMonth,
         description: data.description || undefined,
-      });
+        autoCreateOnDueDate: data.autoCreateOnDueDate ?? false,
+      };
+
+      return isEdit
+        ? updateRecurringTemplate({ id: recurringTemplate.id, ...payload })
+        : createRecurringTemplate(payload);
     },
     onSuccess: () => {
       onSuccess();
       onOpenChange(false);
-      useToastStore.getState().success('Recorrência criada.');
+      useToastStore.getState().success(isEdit ? 'Recorrência atualizada.' : 'Recorrência criada.');
     },
     onError: (error: unknown) => {
       const err = toServiceError(error);
-      appLogger.warn('Erro ao criar recorrência', {
+      appLogger.warn('Erro ao salvar recorrência', {
         domain: 'recurring',
-        event: 'recurring.create.error',
+        event: 'recurring.save.error',
         code: err.code,
         error: err.message,
       });
@@ -86,16 +122,15 @@ export function RecurringFormDialog({
     },
   });
 
-  const { register, handleSubmit, control, formState: { errors } } = useForm<RecurringFormData>({
+  const { register, handleSubmit, control, formState: { errors }, reset } = useForm<RecurringFormData>({
     resolver: zodResolver(recurringSchema),
-    defaultValues: {
-      type: 'income',
-      value: '',
-      categoryId: '',
-      dayOfMonth: 1,
-      description: '',
-    },
+    defaultValues: getDefaultValues(recurringTemplate),
   });
+
+  useEffect(() => {
+    if (!open) return;
+    reset(getDefaultValues(recurringTemplate));
+  }, [open, recurringTemplate, reset]);
 
   const onSubmit = (data: RecurringFormData) => {
     mutation.mutate(data);
@@ -105,7 +140,7 @@ export function RecurringFormDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent showClose={true}>
         <DialogHeader>
-          <DialogTitle>Nova recorrência</DialogTitle>
+          <DialogTitle>{isEdit ? 'Editar recorrência' : 'Nova recorrência'}</DialogTitle>
         </DialogHeader>
         <form onSubmit={handleSubmit(onSubmit)}>
           <div className="grid gap-4 py-4">
@@ -133,7 +168,17 @@ export function RecurringFormDialog({
               </div>
               <div className="space-y-2">
                 <Label>Valor (R$)</Label>
-                <Input placeholder="0,00" {...register('value')} />
+                <Controller
+                  name="value"
+                  control={control}
+                  render={({ field }) => (
+                    <CurrencyInput
+                      placeholder="R$ 0,00"
+                      value={field.value}
+                      onValueChange={field.onChange}
+                    />
+                  )}
+                />
                 {errors.value && (
                   <p className="text-sm text-destructive">{errors.value.message}</p>
                 )}
@@ -166,12 +211,21 @@ export function RecurringFormDialog({
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label>Dia do mês (1-31)</Label>
-                <Input
-                  type="number"
-                  min={1}
-                  max={31}
-                  placeholder="Ex: 5"
-                  {...register('dayOfMonth', { valueAsNumber: true })}
+                <Controller
+                  name="dayOfMonth"
+                  control={control}
+                  render={({ field }) => (
+                    <Input
+                      type="text"
+                      inputMode="numeric"
+                      placeholder="Ex: 5"
+                      value={String(field.value ?? '')}
+                      onChange={(event) => {
+                        const digits = event.target.value.replace(/\D/g, '').slice(0, 2);
+                        field.onChange(digits === '' ? '' : Number(digits));
+                      }}
+                    />
+                  )}
                 />
                 {errors.dayOfMonth && (
                   <p className="text-sm text-destructive">{errors.dayOfMonth.message}</p>
@@ -182,6 +236,26 @@ export function RecurringFormDialog({
                 <Input placeholder="Opcional" {...register('description')} />
               </div>
             </div>
+            <div className="flex items-center gap-2">
+              <Controller
+                name="autoCreateOnDueDate"
+                control={control}
+                render={({ field }) => (
+                  <Switch
+                    id="autoCreateOnDueDate"
+                    checked={field.value ?? false}
+                    onCheckedChange={field.onChange}
+                  />
+                )}
+              />
+              <Label htmlFor="autoCreateOnDueDate" className="cursor-pointer font-normal">
+                Efetivar automaticamente no dia agendado
+              </Label>
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Quando ativado, a plataforma cria e marca como efetivada a transação da recorrência
+              assim que o dia configurado chegar, enquanto o app estiver em uso.
+            </p>
           </div>
           <DialogFooter>
             <Button

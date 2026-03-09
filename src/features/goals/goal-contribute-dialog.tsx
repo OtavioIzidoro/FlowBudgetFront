@@ -11,18 +11,13 @@ import {
   DialogTitle,
 } from '@/shared/ui/dialog';
 import { Button } from '@/shared/ui/button';
-import { Input } from '@/shared/ui/input';
+import { CurrencyInput } from '@/shared/ui/currency-input';
 import { Label } from '@/shared/ui/label';
 import { toServiceError } from '@/shared/lib/errors';
 import { useToastStore } from '@/shared/store/toast-store';
 import { appLogger } from '@/shared/logger';
 import { Spinner } from '@/shared/ui/spinner';
-
-function parseValueToCents(value: string): number {
-  const normalized = value.replace(/\./g, '').replace(',', '.');
-  const num = parseFloat(normalized) || 0;
-  return Math.round(num * 100);
-}
+import { parseCurrencyInputToCents } from '@/shared/lib/format';
 
 interface GoalContributeDialogProps {
   open: boolean;
@@ -67,7 +62,7 @@ export function GoalContributeDialog({
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    const cents = parseValueToCents(value);
+    const cents = parseCurrencyInputToCents(value);
     if (cents <= 0) return;
     mutation.mutate(cents);
   };
@@ -85,10 +80,10 @@ export function GoalContributeDialog({
             </p>
             <div className="space-y-2">
               <Label>Valor (R$)</Label>
-              <Input
-                placeholder="0,00"
+              <CurrencyInput
+                placeholder="R$ 0,00"
                 value={value}
-                onChange={(e) => setValue(e.target.value)}
+                onValueChange={setValue}
               />
             </div>
           </div>
@@ -100,7 +95,7 @@ export function GoalContributeDialog({
             >
               Cancelar
             </Button>
-            <Button type="submit" disabled={mutation.isPending || parseValueToCents(value) <= 0}>
+            <Button type="submit" disabled={mutation.isPending || parseCurrencyInputToCents(value) <= 0}>
               {mutation.isPending ? (
                 <>
                   <Spinner size="sm" className="mr-2" />

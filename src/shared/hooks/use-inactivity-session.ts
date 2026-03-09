@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useRef } from 'react';
 import { useNavigate } from '@tanstack/react-router';
-import { getCurrentUser } from '@/shared/services/auth.service';
-import { logout as apiLogout } from '@/shared/services/auth.service';
+import { logout as apiLogout, refreshAuthSession } from '@/shared/services/auth.service';
 import { useAuthStore } from '@/shared/store/auth-store';
 
 const DEFAULT_INACTIVITY_MS = 30 * 60 * 1000;
@@ -16,7 +15,7 @@ export function useInactivitySession(options?: {
   const refreshIntervalMs = options?.refreshIntervalMs ?? DEFAULT_REFRESH_INTERVAL_MS;
   const navigate = useNavigate();
   const storeLogout = useAuthStore((s) => s.logout);
-  const setUser = useAuthStore((s) => s.setUser);
+  const setAuth = useAuthStore((s) => s.setAuth);
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const lastActivityRef = useRef<number>(Date.now());
   const lastRefreshRef = useRef<number>(Date.now());
@@ -34,15 +33,13 @@ export function useInactivitySession(options?: {
 
   const refreshSession = useCallback(async () => {
     try {
-      const user = await getCurrentUser();
-      if (user) {
-        setUser(user);
-        lastRefreshRef.current = Date.now();
-      }
+      const session = await refreshAuthSession();
+      setAuth(session.user, session.token);
+      lastRefreshRef.current = Date.now();
     } catch {
       handleLogout();
     }
-  }, [setUser, handleLogout]);
+  }, [setAuth, handleLogout]);
 
   const scheduleLogout = useCallback(() => {
     if (timeoutRef.current) clearTimeout(timeoutRef.current);

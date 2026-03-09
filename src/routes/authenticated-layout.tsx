@@ -7,14 +7,23 @@ export function IndexRedirect() {
   const navigate = useNavigate();
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
   const user = useAuthStore((s) => s.user);
+  const hasHydrated = useAuthStore((s) => s.hasHydrated);
+  const isSessionResolved = useAuthStore((s) => s.isSessionResolved);
+
   useEffect(() => {
+    if (!hasHydrated || !isSessionResolved) return;
     if (isAuthenticated) {
       const next = user?.passwordChangeRequired ? '/change-password' : '/dashboard';
       navigate({ to: next as '/' });
     } else {
       navigate({ to: '/login' });
     }
-  }, [isAuthenticated, user?.passwordChangeRequired, navigate]);
+  }, [hasHydrated, isAuthenticated, isSessionResolved, user?.passwordChangeRequired, navigate]);
+
+  if (!hasHydrated || !isSessionResolved) {
+    return null;
+  }
+
   return null;
 }
 
@@ -23,15 +32,21 @@ export function AuthenticatedLayout() {
   const location = useLocation();
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
   const user = useAuthStore((s) => s.user);
+  const hasHydrated = useAuthStore((s) => s.hasHydrated);
+  const isSessionResolved = useAuthStore((s) => s.isSessionResolved);
+
   useEffect(() => {
+    if (!hasHydrated || !isSessionResolved) return;
     if (!isAuthenticated) {
       navigate({ to: '/login' });
     } else if (user?.passwordChangeRequired && location.pathname !== '/change-password') {
       navigate({ to: '/change-password' as '/' });
     }
-  }, [isAuthenticated, user?.passwordChangeRequired, location.pathname, navigate]);
-  if (!isAuthenticated) {
+  }, [hasHydrated, isAuthenticated, isSessionResolved, user?.passwordChangeRequired, location.pathname, navigate]);
+
+  if (!hasHydrated || !isSessionResolved || !isAuthenticated) {
     return null;
   }
+
   return <AppLayout />;
 }

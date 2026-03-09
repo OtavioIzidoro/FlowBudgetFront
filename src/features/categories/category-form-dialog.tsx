@@ -23,6 +23,7 @@ import {
 } from '@/shared/ui/select';
 import { toServiceError } from '@/shared/lib/errors';
 import { appLogger } from '@/shared/logger';
+import { getCategoryIcon } from '@/shared/lib/category-icons';
 
 const categorySchema = z.object({
   name: z.string().min(1, 'Informe o nome'),
@@ -49,6 +50,13 @@ interface CategoryFormDialogProps {
   category?: Category;
   iconOptions: string[];
   onSuccess: () => void;
+}
+
+function getIconLabel(icon: string): string {
+  return icon
+    .split('-')
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(' ');
 }
 
 export function CategoryFormDialog({
@@ -142,11 +150,18 @@ export function CategoryFormDialog({
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      {iconOptions.map((icon) => (
-                        <SelectItem key={icon} value={icon}>
-                          {icon}
-                        </SelectItem>
-                      ))}
+                      {iconOptions.map((icon) => {
+                        const Icon = getCategoryIcon(icon);
+
+                        return (
+                          <SelectItem key={icon} value={icon}>
+                            <span className="flex items-center gap-2">
+                              <Icon className="h-4 w-4" aria-hidden="true" />
+                              {getIconLabel(icon)}
+                            </span>
+                          </SelectItem>
+                        );
+                      })}
                     </SelectContent>
                   </Select>
                 )}
