@@ -23,11 +23,25 @@ import {
   CardTitle,
 } from '@/shared/ui/card';
 import { Alert, AlertDescription, AlertTitle } from '@/shared/ui/alert';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/shared/ui/alert-dialog';
 import { Spinner } from '@/shared/ui/spinner';
 import { Fingerprint } from 'lucide-react';
 import {
+  forgetPasskeyForEmail,
+  getPreferredPasskeyEmail,
+  hasRememberedPasskeyForEmail,
   isPasskeySupported,
   loginWithPasskey,
+  rememberPasskeyForEmail,
 } from '@/shared/services/passkeys.service';
 
 const loginSchema = z.object({
@@ -47,10 +61,12 @@ export function LoginPage() {
   const user = useAuthStore((s) => s.user);
   const [formError, setFormError] = useState<string | null>(null);
   const [passkeyAvailable, setPasskeyAvailable] = useState(false);
+  const [showPasskeyPrompt, setShowPasskeyPrompt] = useState(false);
+  const [promptedEmail, setPromptedEmail] = useState('');
   const [initialEmail] = useState(() => {
     try {
       return typeof window !== 'undefined'
-        ? localStorage.getItem(REMEMBERED_EMAIL_KEY) ?? ''
+        ? localStorage.getItem(REMEMBERED_EMAIL_KEY) ?? getPreferredPasskeyEmail()
         : '';
     } catch {
       return '';
@@ -107,12 +123,26 @@ export function LoginPage() {
     mutationFn: (email: string) => loginWithPasskey(email),
     onSuccess: (data) => {
       setAuth(data.user, data.token);
+      rememberPasskeyForEmail(data.user.email);
       useToastStore.getState().success('Login com passkey realizado com sucesso.');
       const next = data.user.passwordChangeRequired ? '/change-password' : '/dashboard';
       navigate({ to: next as '/' });
     },
     onError: (error: unknown) => {
       const err = toServiceError(error);
+      if (err.code === 'PASSKEY_NOT_AVAILABLE') {
+        const email = emailValue?.trim();
+        if (email) {
+          forgetPasskeyForEmail(email);
+        }
+        setShowPasskeyPrompt(false);
+        setPromptedEmail('');
+        setFormError('Este dispositivo nao tem uma passkey disponivel para este e-mail.');
+        useToastStore.getState().error(
+          'Este dispositivo nao tem uma passkey disponivel para este e-mail.'
+        );
+        return;
+      }
       if (err.code !== 'CANCELLED') {
         appLogger.warn('Erro no login com passkey', {
           domain: 'auth',
@@ -171,6 +201,15 @@ export function LoginPage() {
   const emailValue = watch('email');
   const rememberValue = watch('remember');
 
+  useEffect(() => {
+    const normalizedEmail = emailValue?.trim().toLowerCase() ?? '';
+    if (!passkeyAvailable || !normalizedEmail) return;
+    if (normalizedEmail === promptedEmail) return;
+    if (!hasRememberedPasskeyForEmail(normalizedEmail)) return;
+    setPromptedEmail(normalizedEmail);
+    setShowPasskeyPrompt(true);
+  }, [emailValue, passkeyAvailable, promptedEmail]);
+
   const handlePasskeyLogin = () => {
     const email = emailValue?.trim();
     if (!email) {
@@ -180,6 +219,7 @@ export function LoginPage() {
       return;
     }
     setFormError(null);
+    setShowPasskeyPrompt(false);
     passkeyMutation.mutate(email, {
       onSuccess: () => {
         try {
@@ -197,6 +237,21 @@ export function LoginPage() {
 
   return (
     <div className="relative flex min-h-screen items-center justify-center overflow-hidden p-4">
+      <AlertDialog open={showPasskeyPrompt} onOpenChange={setShowPasskeyPrompt}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Usar biometria neste login?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Encontramos uma passkey neste dispositivo. Voce pode entrar com biometria,
+              Face ID ou PIN.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Agora nao</AlertDialogCancel>
+            <AlertDialogAction onClick={handlePasskeyLogin}>Usar biometria</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
       <div
         className="absolute inset-0 animate-gradient-shift"
         style={{
@@ -327,7 +382,7 @@ export function LoginPage() {
                 ) : (
                   <>
                     <Fingerprint className="mr-2 h-4 w-4" />
-                    Entrar com passkey
+                    Entrar com biometria
                   </>
                 )}
               </Button>

@@ -64,6 +64,7 @@ jobs:
 
       - name: Build and publish mac
         if: matrix.platform == 'mac'
+        shell: bash
         run: |
           export CSC_IDENTITY_AUTO_DISCOVERY=false
           if [ -n "${{ secrets.MAC_CSC_LINK }}" ]; then
@@ -83,6 +84,7 @@ jobs:
 
       - name: Build and publish win
         if: matrix.platform == 'win'
+        shell: bash
         run: |
           export CSC_IDENTITY_AUTO_DISCOVERY=false
           if [ -n "${{ secrets.WIN_CSC_LINK }}" ]; then

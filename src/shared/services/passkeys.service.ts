@@ -1,6 +1,9 @@
 import type { User } from '@/entities/user/types';
 import { apiRequest } from '@/shared/services/api-client';
 
+const PASSKEY_EMAILS_KEY = 'flowbudget-passkey-emails';
+const PASSKEY_PREFERRED_EMAIL_KEY = 'flowbudget-passkey-preferred-email';
+
 interface AuthResponse {
   user: User;
   token: string;
@@ -46,6 +49,28 @@ interface PasskeyRegisterVerifyResponse {
   credentialId: string;
   deviceName: string;
   createdAt: string;
+}
+
+function normalizeEmail(email: string): string {
+  return email.trim().toLowerCase();
+}
+
+function readStoredPasskeyEmails(): string[] {
+  if (typeof window === 'undefined') return [];
+  try {
+    const raw = localStorage.getItem(PASSKEY_EMAILS_KEY);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return [];
+    return parsed.filter((item): item is string => typeof item === 'string');
+  } catch {
+    return [];
+  }
+}
+
+function writeStoredPasskeyEmails(emails: string[]): void {
+  if (typeof window === 'undefined') return;
+  localStorage.setItem(PASSKEY_EMAILS_KEY, JSON.stringify(emails));
 }
 
 function base64urlToArrayBuffer(value: string): ArrayBuffer {
@@ -114,6 +139,54 @@ export function isPasskeySupported(): boolean {
   );
 }
 
+export function getDefaultPasskeyDeviceName(): string {
+  if (typeof window === 'undefined') return 'Este dispositivo';
+  const nav = window.navigator as Navigator & {
+    userAgentData?: { platform?: string };
+  };
+  const platform = nav.userAgentData?.platform ?? window.navigator.platform ?? '';
+  return platform ? `Passkey ${platform}` : 'Este dispositivo';
+}
+
+export function rememberPasskeyForEmail(email: string): void {
+  const normalizedEmail = normalizeEmail(email);
+  if (!normalizedEmail || typeof window === 'undefined') return;
+  const emails = readStoredPasskeyEmails();
+  if (!emails.includes(normalizedEmail)) {
+    writeStoredPasskeyEmails([...emails, normalizedEmail]);
+  }
+  localStorage.setItem(PASSKEY_PREFERRED_EMAIL_KEY, normalizedEmail);
+}
+
+export function forgetPasskeyForEmail(email: string): void {
+  const normalizedEmail = normalizeEmail(email);
+  if (!normalizedEmail || typeof window === 'undefined') return;
+  const emails = readStoredPasskeyEmails().filter((item) => item !== normalizedEmail);
+  writeStoredPasskeyEmails(emails);
+  try {
+    if (localStorage.getItem(PASSKEY_PREFERRED_EMAIL_KEY) === normalizedEmail) {
+      localStorage.removeItem(PASSKEY_PREFERRED_EMAIL_KEY);
+    }
+  } catch {
+    //
+  }
+}
+
+export function hasRememberedPasskeyForEmail(email: string): boolean {
+  const normalizedEmail = normalizeEmail(email);
+  if (!normalizedEmail) return false;
+  return readStoredPasskeyEmails().includes(normalizedEmail);
+}
+
+export function getPreferredPasskeyEmail(): string {
+  if (typeof window === 'undefined') return '';
+  try {
+    return localStorage.getItem(PASSKEY_PREFERRED_EMAIL_KEY) ?? '';
+  } catch {
+    return '';
+  }
+}
+
 export async function registerPasskey(
   deviceName: string
 ): Promise<PasskeyRegisterVerifyResponse> {
@@ -156,13 +229,25 @@ export async function registerPasskey(
 }
 
 export async function loginWithPasskey(email: string): Promise<AuthResponse> {
-  const options = await apiRequest<PasskeyLoginOptionsResponse>(
-    '/auth/passkeys/login/options',
-    {
+  let options: PasskeyLoginOptionsResponse;
+  try {
+    options = await apiRequest<PasskeyLoginOptionsResponse>('/auth/passkeys/login/options', {
       method: 'POST',
       body: { email },
-    }
-  );
+    });
+  } catch {
+    throw {
+      code: 'PASSKEY_NOT_AVAILABLE',
+      message: 'Nao foi possivel iniciar o login com passkey para este e-mail.',
+    };
+  }
+
+  if (!options.allowCredentials?.length) {
+    throw {
+      code: 'PASSKEY_NOT_AVAILABLE',
+      message: 'Nenhuma passkey foi encontrada para este e-mail neste dispositivo.',
+    };
+  }
 
   const credential = await navigator.credentials.get({
     publicKey: {
