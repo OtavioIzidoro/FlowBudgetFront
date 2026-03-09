@@ -43,6 +43,7 @@ import {
   loginWithPasskey,
   rememberPasskeyForEmail,
 } from '@/shared/services/passkeys.service';
+import { AppFooter } from '@/shared/components/app-footer';
 
 const loginSchema = z.object({
   email: z.string().min(1, 'Informe o e-mail').email('E-mail inválido'),
@@ -281,7 +282,7 @@ export function LoginPage() {
   };
 
   return (
-    <div className="relative flex min-h-screen items-center justify-center overflow-hidden p-4">
+    <div className="relative flex min-h-screen flex-col items-center justify-center overflow-hidden p-4">
       <AlertDialog open={showPasskeyPrompt} onOpenChange={setShowPasskeyPrompt}>
         <AlertDialogContent>
           <AlertDialogHeader>
@@ -307,134 +308,137 @@ export function LoginPage() {
       <div className="absolute inset-0 bg-[linear-gradient(to_right,hsl(var(--border))_1px,transparent_1px),linear-gradient(to_bottom,hsl(var(--border))_1px,transparent_1px)] bg-[size:4rem_4rem] [mask-image:radial-gradient(ellipse_80%_50%_at_50%_0%,black_70%,transparent_100%)] opacity-30" />
       <div className="absolute left-1/4 top-1/4 h-72 w-72 rounded-full bg-primary/10 blur-3xl animate-float" />
       <div className="absolute bottom-1/4 right-1/4 h-96 w-96 rounded-full bg-primary/5 blur-3xl animate-float-slow" />
-      <Card className="relative w-full max-w-md border-0 bg-card/80 shadow-xl backdrop-blur-xl animate-card-enter transition-all duration-300 hover:shadow-2xl hover:bg-card/90">
-        <CardHeader className="space-y-3 text-center">
-          <div className="flex justify-center">
-            <div className="relative">
-              <img
-                src="/assets/logo.png"
-                alt="FlowBudget"
-                className="h-16 w-16 object-contain drop-shadow-lg transition-transform duration-300 hover:scale-110"
-              />
-              <div className="absolute -inset-2 -z-10 rounded-full bg-primary/20 blur-xl animate-glow-pulse" />
+      <div className="relative z-10 flex w-full max-w-md flex-col gap-4">
+        <Card className="relative w-full border-0 bg-card/80 shadow-xl backdrop-blur-xl animate-card-enter transition-all duration-300 hover:shadow-2xl hover:bg-card/90">
+          <CardHeader className="space-y-3 text-center">
+            <div className="flex justify-center">
+              <div className="relative">
+                <img
+                  src="/assets/logo.png"
+                  alt="FlowBudget"
+                  className="h-16 w-16 object-contain drop-shadow-lg transition-transform duration-300 hover:scale-110"
+                />
+                <div className="absolute -inset-2 -z-10 rounded-full bg-primary/20 blur-xl animate-glow-pulse" />
+              </div>
             </div>
-          </div>
-          <CardTitle className="text-2xl font-heading tracking-tight">{APP_TITLE}</CardTitle>
-          <CardDescription className="text-muted-foreground">
-            Controle financeiro inteligente por {COMPANY_NAME}
-          </CardDescription>
-        </CardHeader>
-        <form onSubmit={handleSubmit(onSubmit)}>
-          <CardContent className="space-y-4">
-            {formError && (
-              <Alert variant="destructive">
-                <AlertTitle>Erro ao entrar</AlertTitle>
-                <AlertDescription>
-                  {formError}
-                  {formError.includes('e-mail e senha') && (
-                    <span className="mt-2 block text-sm">
-                      Preencha os campos abaixo e clique em Entrar.
-                    </span>
-                  )}
-                </AlertDescription>
-              </Alert>
-            )}
-            <div className="space-y-2">
-              <Label htmlFor="email" className="text-sm font-medium">
-                E-mail
-              </Label>
-              <Input
-                id="email"
-                type="email"
-                autoComplete="email"
-                placeholder="seu@email.com"
-                className="transition-all duration-200 focus:ring-2 focus:ring-primary/20"
-                {...register('email')}
-              />
-              {errors.email && (
-                <p className="text-sm text-destructive">{errors.email.message}</p>
+            <CardTitle className="text-2xl font-heading tracking-tight">{APP_TITLE}</CardTitle>
+            <CardDescription className="text-muted-foreground">
+              Controle financeiro inteligente por {COMPANY_NAME}
+            </CardDescription>
+          </CardHeader>
+          <form onSubmit={handleSubmit(onSubmit)}>
+            <CardContent className="space-y-4">
+              {formError && (
+                <Alert variant="destructive">
+                  <AlertTitle>Erro ao entrar</AlertTitle>
+                  <AlertDescription>
+                    {formError}
+                    {formError.includes('e-mail e senha') && (
+                      <span className="mt-2 block text-sm">
+                        Preencha os campos abaixo e clique em Entrar.
+                      </span>
+                    )}
+                  </AlertDescription>
+                </Alert>
               )}
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="password" className="text-sm font-medium">
-                Senha
-              </Label>
-              <Input
-                id="password"
-                type="password"
-                autoComplete="current-password"
-                placeholder="••••••••"
-                className="transition-all duration-200 focus:ring-2 focus:ring-primary/20"
-                {...register('password')}
-              />
-              {errors.password && (
-                <p className="text-sm text-destructive">
-                  {errors.password.message}
-                </p>
-              )}
-            </div>
-            <div className="flex items-center space-x-2">
-              <Controller
-                name="remember"
-                control={control}
-                render={({ field }) => (
-                  <Switch
-                    id="remember"
-                    checked={field.value}
-                    onCheckedChange={field.onChange}
-                  />
+              <div className="space-y-2">
+                <Label htmlFor="email" className="text-sm font-medium">
+                  E-mail
+                </Label>
+                <Input
+                  id="email"
+                  type="email"
+                  autoComplete="email"
+                  placeholder="seu@email.com"
+                  className="transition-all duration-200 focus:ring-2 focus:ring-primary/20"
+                  {...register('email')}
+                />
+                {errors.email && (
+                  <p className="text-sm text-destructive">{errors.email.message}</p>
                 )}
-              />
-              <Label htmlFor="remember" className="font-normal">
-                Lembrar sessão
-              </Label>
-            </div>
-            <button
-              type="button"
-              className="text-sm text-primary underline-offset-4 hover:underline"
-            >
-              Recuperar senha
-            </button>
-          </CardContent>
-          <CardFooter className="flex flex-col gap-2">
-            <Button
-              type="submit"
-              className="w-full transition-all duration-200 hover:scale-[1.02] active:scale-[0.98]"
-              disabled={mutation.isPending}
-            >
-              {mutation.isPending ? (
-                <>
-                  <Spinner size="sm" className="mr-2" />
-                  Entrando...
-                </>
-              ) : (
-                'Entrar'
-              )}
-            </Button>
-            {passkeyAvailable && (
-              <Button
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="password" className="text-sm font-medium">
+                  Senha
+                </Label>
+                <Input
+                  id="password"
+                  type="password"
+                  autoComplete="current-password"
+                  placeholder="••••••••"
+                  className="transition-all duration-200 focus:ring-2 focus:ring-primary/20"
+                  {...register('password')}
+                />
+                {errors.password && (
+                  <p className="text-sm text-destructive">
+                    {errors.password.message}
+                  </p>
+                )}
+              </div>
+              <div className="flex items-center space-x-2">
+                <Controller
+                  name="remember"
+                  control={control}
+                  render={({ field }) => (
+                    <Switch
+                      id="remember"
+                      checked={field.value}
+                      onCheckedChange={field.onChange}
+                    />
+                  )}
+                />
+                <Label htmlFor="remember" className="font-normal">
+                  Lembrar sessão
+                </Label>
+              </div>
+              <button
                 type="button"
-                variant="outline"
-                className="w-full transition-all duration-200 hover:scale-[1.02] hover:border-primary/50 active:scale-[0.98]"
-                disabled={passkeyMutation.isPending}
-                onClick={handlePasskeyLogin}
+                className="text-sm text-primary underline-offset-4 hover:underline"
               >
-                {passkeyMutation.isPending ? (
+                Recuperar senha
+              </button>
+            </CardContent>
+            <CardFooter className="flex flex-col gap-2">
+              <Button
+                type="submit"
+                className="w-full transition-all duration-200 hover:scale-[1.02] active:scale-[0.98]"
+                disabled={mutation.isPending}
+              >
+                {mutation.isPending ? (
                   <>
                     <Spinner size="sm" className="mr-2" />
-                    Validando...
+                    Entrando...
                   </>
                 ) : (
-                  <>
-                    <Fingerprint className="mr-2 h-4 w-4" />
-                    Entrar com biometria
-                  </>
+                  'Entrar'
                 )}
               </Button>
-            )}
-          </CardFooter>
-        </form>
-      </Card>
+              {passkeyAvailable && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="w-full transition-all duration-200 hover:scale-[1.02] hover:border-primary/50 active:scale-[0.98]"
+                  disabled={passkeyMutation.isPending}
+                  onClick={handlePasskeyLogin}
+                >
+                  {passkeyMutation.isPending ? (
+                    <>
+                      <Spinner size="sm" className="mr-2" />
+                      Validando...
+                    </>
+                  ) : (
+                    <>
+                      <Fingerprint className="mr-2 h-4 w-4" />
+                      Entrar com biometria
+                    </>
+                  )}
+                </Button>
+              )}
+            </CardFooter>
+          </form>
+        </Card>
+        <AppFooter className="rounded-lg border border-border/60 bg-card/70 backdrop-blur-sm" />
+      </div>
     </div>
   );
 }

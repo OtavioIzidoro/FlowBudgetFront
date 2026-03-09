@@ -11,6 +11,7 @@ const isDev =
 let mainWindow = null;
 let localServer = null;
 let localServerUrl = null;
+let updateCheckInFlight = false;
 const LOCAL_APP_HOST = 'localhost';
 const REMEMBERED_LOGIN_FILE = 'remembered-login.bin';
 
@@ -185,6 +186,26 @@ async function createWindow() {
   });
 }
 
+async function checkForAppUpdates() {
+  if (isDev) {
+    throw new Error('A verificação de atualização só está disponível no aplicativo instalado.');
+  }
+
+  if (updateCheckInFlight) {
+    return { started: false };
+  }
+
+  updateCheckInFlight = true;
+
+  try {
+    await autoUpdater.checkForUpdates();
+    return { started: true };
+  } catch (error) {
+    updateCheckInFlight = false;
+    throw error;
+  }
+}
+
 function setupAutoUpdater() {
   if (isDev) return;
   autoUpdater.autoDownload = true;
@@ -194,6 +215,14 @@ function setupAutoUpdater() {
     if (mainWindow && !mainWindow.isDestroyed()) {
       mainWindow.webContents.send('electron-update-available', info.version);
     }
+    updateCheckInFlight = false;
+  });
+
+  autoUpdater.on('update-not-available', (info) => {
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.webContents.send('electron-update-not-available', info.version);
+    }
+    updateCheckInFlight = false;
   });
 
   autoUpdater.on('update-downloaded', (info) => {
@@ -206,14 +235,13 @@ function setupAutoUpdater() {
     if (mainWindow && !mainWindow.isDestroyed()) {
       mainWindow.webContents.send('electron-update-error', err.message);
     }
+    updateCheckInFlight = false;
   });
 
-  ipcMain.handle('electron-quit-and-install', () => {
-    autoUpdater.quitAndInstall(false, true);
-  });
-
-  autoUpdater.checkForUpdates();
-  setInterval(() => autoUpdater.checkForUpdates(), 1000 * 60 * 60 * 4);
+  void checkForAppUpdates();
+  setInterval(() => {
+    void checkForAppUpdates();
+  }, 1000 * 60 * 60 * 4);
 }
 
 ipcMain.handle('electron-show-notification', (_, payload) => {
@@ -251,6 +279,18 @@ ipcMain.handle('electron-save-remembered-login', (_, payload) => {
 
 ipcMain.handle('electron-clear-remembered-login', () => {
   return clearRememberedLogin();
+});
+
+ipcMain.handle('electron-check-for-updates', () => {
+  return checkForAppUpdates();
+});
+
+ipcMain.handle('electron-quit-and-install', () => {
+  if (isDev) {
+    throw new Error('A instalação de atualização só está disponível no aplicativo instalado.');
+  }
+
+  autoUpdater.quitAndInstall(false, true);
 });
 
 app.whenReady().then(async () => {

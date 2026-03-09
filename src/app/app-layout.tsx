@@ -12,6 +12,8 @@ import {
   UserPlus,
   CalendarCheck,
   Plus,
+  Download,
+  RefreshCw,
 } from 'lucide-react';
 import { cn } from '@/shared/lib/utils';
 import { useAuthStore } from '@/shared/store/auth-store';
@@ -23,8 +25,10 @@ import { APP_TITLE } from '@/shared/config/constants';
 import { Button } from '@/shared/ui/button';
 import { useInactivitySession } from '@/shared/hooks/use-inactivity-session';
 import { useDesktopNotifications } from '@/shared/hooks/use-desktop-notifications';
+import { useAppUpdates } from '@/shared/hooks/use-app-updates';
 import { SidebarBalance } from '@/app/sidebar-balance';
 import { useNewTransactionModalStore } from '@/shared/store/new-transaction-modal-store';
+import { AppFooter } from '@/shared/components/app-footer';
 
 const navItems = [
   { to: '/dashboard', label: 'Dashboard', icon: LayoutDashboard, tourId: 'nav-dashboard' },
@@ -43,6 +47,12 @@ export function AppLayout() {
   const storeLogout = useAuthStore((s) => s.logout);
   const user = useAuthStore((s) => s.user);
   const showAdmin = isSuperAdmin(user);
+  const {
+    canCheckForUpdates,
+    checkForUpdates,
+    isCheckingForUpdates,
+    isUpdateReady,
+  } = useAppUpdates();
 
   useInactivitySession();
   useDesktopNotifications();
@@ -120,6 +130,27 @@ export function AppLayout() {
           </div>
         )}
         <div className="border-t p-2 space-y-1">
+          {canCheckForUpdates && (
+            <Button
+              variant="ghost"
+              className="w-full justify-start"
+              onClick={() => void checkForUpdates()}
+              disabled={isCheckingForUpdates}
+            >
+              {isCheckingForUpdates ? (
+                <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
+              ) : isUpdateReady ? (
+                <Download className="mr-2 h-4 w-4" />
+              ) : (
+                <RefreshCw className="mr-2 h-4 w-4" />
+              )}
+              {isCheckingForUpdates
+                ? 'Procurando atualização...'
+                : isUpdateReady
+                  ? 'Instalar atualização'
+                  : 'Procurar atualização'}
+            </Button>
+          )}
           <Button
             variant="ghost"
             className="w-full justify-start"
@@ -137,22 +168,22 @@ export function AppLayout() {
           </Button>
         </div>
       </aside>
-      <main
-        className="flex-1 overflow-auto relative"
-        data-tour="main-content"
-      >
-        <Outlet />
-        <button
-          type="button"
-          onClick={() => {
-            useNewTransactionModalStore.getState().setOpenFromFab(true);
-            void navigate({ to: '/transactions' as '/' });
-          }}
-          className="fixed bottom-6 right-6 flex h-14 w-14 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-lg hover:bg-primary/90 transition-colors z-50"
-          aria-label="Nova transação"
-        >
-          <Plus className="h-6 w-6" />
-        </button>
+      <main className="relative flex flex-1 flex-col" data-tour="main-content">
+        <div className="relative flex-1 overflow-auto">
+          <Outlet />
+          <button
+            type="button"
+            onClick={() => {
+              useNewTransactionModalStore.getState().setOpenFromFab(true);
+              void navigate({ to: '/transactions' as '/' });
+            }}
+            className="fixed bottom-6 right-6 z-50 flex h-14 w-14 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-lg transition-colors hover:bg-primary/90"
+            aria-label="Nova transação"
+          >
+            <Plus className="h-6 w-6" />
+          </button>
+        </div>
+        <AppFooter />
       </main>
       <Tour />
     </div>

@@ -19,13 +19,14 @@ import {
 } from '@/shared/ui/select';
 import { useEffect } from 'react';
 import { useTheme } from '@/shared/hooks/use-theme';
-import { KeyRound } from 'lucide-react';
+import { Download, KeyRound, RefreshCw } from 'lucide-react';
 import type { UserPreferences } from '@/entities/user/types';
 import { TelegramSettingsCard } from '@/features/profile/telegram-settings-card';
 import { PasskeySettingsCard } from '@/features/profile/passkey-settings-card';
 import { updateCurrentUser } from '@/shared/services/users.service';
 import { useToastStore } from '@/shared/store/toast-store';
 import { toServiceError } from '@/shared/lib/errors';
+import { useAppUpdates } from '@/shared/hooks/use-app-updates';
 
 const profileSchema = z.object({
   name: z.string().min(1, 'Informe o nome'),
@@ -40,6 +41,12 @@ export function ProfilePage() {
   const { theme, setTheme, notificationsEnabled, setNotificationsEnabled } =
     useUserPreferencesStore();
   const { setTheme: applyTheme } = useTheme();
+  const {
+    canCheckForUpdates,
+    checkForUpdates,
+    isCheckingForUpdates,
+    isUpdateReady,
+  } = useAppUpdates();
 
   const mutation = useMutation({
     mutationFn: (data: ProfileFormData) =>
@@ -147,6 +154,37 @@ export function ProfilePage() {
               Habilitar notificações
             </Label>
           </div>
+          {canCheckForUpdates && (
+            <div className="flex items-center justify-between gap-4 rounded-lg border p-4">
+              <div className="space-y-1">
+                <p className="text-sm font-medium text-foreground">Atualizações do aplicativo</p>
+                <p className="text-sm text-muted-foreground">
+                  Verifique manualmente se existe uma nova versão e instale quando ela estiver
+                  pronta.
+                </p>
+              </div>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => void checkForUpdates()}
+                disabled={isCheckingForUpdates}
+                className="shrink-0"
+              >
+                {isCheckingForUpdates ? (
+                  <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
+                ) : isUpdateReady ? (
+                  <Download className="mr-2 h-4 w-4" />
+                ) : (
+                  <RefreshCw className="mr-2 h-4 w-4" />
+                )}
+                {isCheckingForUpdates
+                  ? 'Procurando...'
+                  : isUpdateReady
+                    ? 'Instalar atualização'
+                    : 'Verificar atualização'}
+              </Button>
+            </div>
+          )}
         </CardContent>
       </Card>
 
