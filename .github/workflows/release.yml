@@ -56,13 +56,27 @@ jobs:
       - name: Prepare icon
         run: node -e "require('fs').mkdirSync('build',{recursive:true});require('fs').copyFileSync('public/assets/logo.png','build/icon.png')"
 
-      - name: Build and publish linux
+      - name: Build and upload linux
         if: matrix.platform == 'linux'
-        run: npx electron-builder --linux --publish always
+        shell: bash
+        run: |
+          npx electron-builder --linux --publish never
+          shopt -s nullglob
+          files=()
+          for file in release/*; do
+            if [ -f "$file" ]; then
+              files+=("$file")
+            fi
+          done
+          if [ ${#files[@]} -eq 0 ]; then
+            echo "Nenhum artefato de release foi gerado."
+            exit 1
+          fi
+          gh release upload "$GITHUB_REF_NAME" "${files[@]}" --clobber
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Build and publish mac
+      - name: Build and upload mac
         if: matrix.platform == 'mac'
         shell: bash
         run: |
@@ -78,11 +92,23 @@ jobs:
             echo "Building unsigned mac release"
             unset CSC_LINK CSC_KEY_PASSWORD APPLE_ID APPLE_APP_SPECIFIC_PASSWORD APPLE_TEAM_ID
           fi
-          npx electron-builder --mac --publish always
+          npx electron-builder --mac --publish never
+          shopt -s nullglob
+          files=()
+          for file in release/*; do
+            if [ -f "$file" ]; then
+              files+=("$file")
+            fi
+          done
+          if [ ${#files[@]} -eq 0 ]; then
+            echo "Nenhum artefato de release foi gerado."
+            exit 1
+          fi
+          gh release upload "$GITHUB_REF_NAME" "${files[@]}" --clobber
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Build and publish win
+      - name: Build and upload win
         if: matrix.platform == 'win'
         shell: bash
         run: |
@@ -95,6 +121,18 @@ jobs:
             echo "Building unsigned windows release"
             unset CSC_LINK CSC_KEY_PASSWORD
           fi
-          npx electron-builder --win --publish always
+          npx electron-builder --win --publish never
+          shopt -s nullglob
+          files=()
+          for file in release/*; do
+            if [ -f "$file" ]; then
+              files+=("$file")
+            fi
+          done
+          if [ ${#files[@]} -eq 0 ]; then
+            echo "Nenhum artefato de release foi gerado."
+            exit 1
+          fi
+          gh release upload "$GITHUB_REF_NAME" "${files[@]}" --clobber
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
