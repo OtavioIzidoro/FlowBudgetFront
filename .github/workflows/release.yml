@@ -65,32 +65,34 @@ jobs:
       - name: Build and publish mac
         if: matrix.platform == 'mac'
         run: |
-          if [ -n "$CSC_LINK" ]; then
+          export CSC_IDENTITY_AUTO_DISCOVERY=false
+          if [ -n "${{ secrets.MAC_CSC_LINK }}" ]; then
             echo "Building signed mac release"
+            export CSC_LINK='${{ secrets.MAC_CSC_LINK }}'
+            export CSC_KEY_PASSWORD='${{ secrets.MAC_CSC_KEY_PASSWORD }}'
+            export APPLE_ID='${{ secrets.APPLE_ID }}'
+            export APPLE_APP_SPECIFIC_PASSWORD='${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}'
+            export APPLE_TEAM_ID='${{ secrets.APPLE_TEAM_ID }}'
           else
             echo "Building unsigned mac release"
+            unset CSC_LINK CSC_KEY_PASSWORD APPLE_ID APPLE_APP_SPECIFIC_PASSWORD APPLE_TEAM_ID
           fi
           npx electron-builder --mac --publish always
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          CSC_IDENTITY_AUTO_DISCOVERY: false
-          CSC_LINK: ${{ secrets.MAC_CSC_LINK }}
-          CSC_KEY_PASSWORD: ${{ secrets.MAC_CSC_KEY_PASSWORD }}
-          APPLE_ID: ${{ secrets.APPLE_ID }}
-          APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
-          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
 
       - name: Build and publish win
         if: matrix.platform == 'win'
         run: |
-          if [ -n "$CSC_LINK" ]; then
+          export CSC_IDENTITY_AUTO_DISCOVERY=false
+          if [ -n "${{ secrets.WIN_CSC_LINK }}" ]; then
             echo "Building signed windows release"
+            export CSC_LINK='${{ secrets.WIN_CSC_LINK }}'
+            export CSC_KEY_PASSWORD='${{ secrets.WIN_CSC_KEY_PASSWORD }}'
           else
             echo "Building unsigned windows release"
+            unset CSC_LINK CSC_KEY_PASSWORD
           fi
           npx electron-builder --win --publish always
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          CSC_IDENTITY_AUTO_DISCOVERY: false
-          CSC_LINK: ${{ secrets.WIN_CSC_LINK }}
-          CSC_KEY_PASSWORD: ${{ secrets.WIN_CSC_KEY_PASSWORD }}
