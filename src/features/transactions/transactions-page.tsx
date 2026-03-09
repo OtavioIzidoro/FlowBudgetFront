@@ -77,6 +77,22 @@ function getMonthKey(date: Date): string {
   return `${y}-${m}`;
 }
 
+function parseMonthKey(value: string): Date {
+  const [yearPart, monthPart] = value.split('-');
+  const year = Number(yearPart);
+  const month = Number(monthPart);
+  return new Date(year, (month || 1) - 1, 1);
+}
+
+function parseTransactionDate(value: string): Date {
+  const match = value.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (match) {
+    const [, year, month, day] = match;
+    return new Date(Number(year), Number(month) - 1, Number(day));
+  }
+  return new Date(value);
+}
+
 export function TransactionsPage() {
   const queryClient = useQueryClient();
   const openFromFab = useNewTransactionModalStore((s) => s.openFromFab);
@@ -152,7 +168,7 @@ export function TransactionsPage() {
         return (
           t.type === 'expense' &&
           t.status === 'pending' &&
-          new Date(dateStr).getTime() >= currentMonthStart
+          parseTransactionDate(dateStr).getTime() >= currentMonthStart
         );
       }
 
@@ -346,7 +362,7 @@ export function TransactionsPage() {
                 className="h-8 w-8"
                 onClick={() => {
                   const ref = monthFilter
-                    ? new Date(monthFilter + '-01')
+                    ? parseMonthKey(monthFilter)
                     : new Date();
                   setMonthFilter(getMonthKey(subMonths(ref, 1)));
                 }}
@@ -358,7 +374,7 @@ export function TransactionsPage() {
                 {monthFilter === 'upcoming-pending-expenses'
                   ? 'A pagar'
                   : monthFilter
-                  ? format(new Date(monthFilter + '-01'), 'MMMM yyyy', { locale: ptBR }).replace(/^./, (c) => c.toUpperCase())
+                  ? format(parseMonthKey(monthFilter), 'MMMM yyyy', { locale: ptBR }).replace(/^./, (c) => c.toUpperCase())
                   : 'Todos os meses'}
               </span>
               <Button
@@ -370,7 +386,7 @@ export function TransactionsPage() {
                   const ref = monthFilter
                     ? monthFilter === 'upcoming-pending-expenses'
                       ? new Date()
-                      : new Date(monthFilter + '-01')
+                      : parseMonthKey(monthFilter)
                     : new Date();
                   setMonthFilter(getMonthKey(addMonths(ref, 1)));
                 }}
@@ -554,7 +570,7 @@ export function TransactionsPage() {
                         {categoryMap.get(t.categoryId)?.name ?? t.categoryId}
                       </td>
                       <td className="py-2">
-                        {format(new Date(t.date), 'dd/MM/yyyy', {
+                        {format(parseTransactionDate(t.date), 'dd/MM/yyyy', {
                           locale: ptBR,
                         })}
                       </td>
