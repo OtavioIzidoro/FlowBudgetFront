@@ -76,7 +76,28 @@ jobs:
             echo "Nenhum artefato de release foi gerado."
             exit 1
           fi
-          gh release upload "$GITHUB_REF_NAME" "${files[@]}" --clobber
+          unique_files=()
+          unique_names=()
+          for file in "${files[@]}"; do
+            name="$(basename "$file")"
+            duplicate=false
+            for existing in "${unique_names[@]}"; do
+              if [ "$existing" = "$name" ]; then
+                duplicate=true
+                break
+              fi
+            done
+            if [ "$duplicate" = false ]; then
+              unique_files+=("$file")
+              unique_names+=("$name")
+            fi
+          done
+          for i in "${!unique_files[@]}"; do
+            file="${unique_files[$i]}"
+            name="${unique_names[$i]}"
+            gh release delete-asset "$GITHUB_REF_NAME" "$name" --yes >/dev/null 2>&1 || true
+            gh release upload "$GITHUB_REF_NAME" "$file"
+          done
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
@@ -110,7 +131,28 @@ jobs:
             echo "Nenhum artefato de release foi gerado."
             exit 1
           fi
-          gh release upload "$GITHUB_REF_NAME" "${files[@]}" --clobber
+          unique_files=()
+          unique_names=()
+          for file in "${files[@]}"; do
+            name="$(basename "$file")"
+            duplicate=false
+            for existing in "${unique_names[@]}"; do
+              if [ "$existing" = "$name" ]; then
+                duplicate=true
+                break
+              fi
+            done
+            if [ "$duplicate" = false ]; then
+              unique_files+=("$file")
+              unique_names+=("$name")
+            fi
+          done
+          for i in "${!unique_files[@]}"; do
+            file="${unique_files[$i]}"
+            name="${unique_names[$i]}"
+            gh release delete-asset "$GITHUB_REF_NAME" "$name" --yes >/dev/null 2>&1 || true
+            gh release upload "$GITHUB_REF_NAME" "$file"
+          done
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
@@ -141,6 +183,27 @@ jobs:
             echo "Nenhum artefato de release foi gerado."
             exit 1
           fi
-          gh release upload "$GITHUB_REF_NAME" "${files[@]}" --clobber
+          unique_files=()
+          unique_names=()
+          for file in "${files[@]}"; do
+            name="$(basename "$file")"
+            duplicate=false
+            for existing in "${unique_names[@]}"; do
+              if [ "$existing" = "$name" ]; then
+                duplicate=true
+                break
+              fi
+            done
+            if [ "$duplicate" = false ]; then
+              unique_files+=("$file")
+              unique_names+=("$name")
+            fi
+          done
+          for i in "${!unique_files[@]}"; do
+            file="${unique_files[$i]}"
+            name="${unique_names[$i]}"
+            gh release delete-asset "$GITHUB_REF_NAME" "$name" --yes >/dev/null 2>&1 || true
+            gh release upload "$GITHUB_REF_NAME" "$file"
+          done
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
