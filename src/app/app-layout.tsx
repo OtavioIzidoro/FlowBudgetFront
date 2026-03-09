@@ -21,6 +21,7 @@ import { Tour } from '@/shared/components/tour/tour';
 import { APP_TITLE } from '@/shared/config/constants';
 import { Button } from '@/shared/ui/button';
 import { useInactivitySession } from '@/shared/hooks/use-inactivity-session';
+import { useDesktopNotifications } from '@/shared/hooks/use-desktop-notifications';
 import { SidebarBalance } from '@/app/sidebar-balance';
 import { useNewTransactionModalStore } from '@/shared/store/new-transaction-modal-store';
 
@@ -43,6 +44,7 @@ export function AppLayout() {
   const showAdmin = isSuperAdmin(user);
 
   useInactivitySession();
+  useDesktopNotifications();
 
   const handleLogout = async () => {
     await apiLogout();

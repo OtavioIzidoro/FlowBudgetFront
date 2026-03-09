@@ -12,4 +12,5 @@ contextBridge.exposeInMainWorld('electronAPI', {
     ipcRenderer.on('electron-update-error', (_, message) => callback(message));
   },
   quitAndInstall: () => ipcRenderer.invoke('electron-quit-and-install'),
+  showNotification: (payload) => ipcRenderer.invoke('electron-show-notification', payload),
 });

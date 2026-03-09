@@ -17,7 +17,7 @@ import { TransactionFormDialog } from '@/features/transactions/transaction-form-
 import { RecurringFormDialog } from '@/features/recurring/recurring-form-dialog';
 import type { RecurringTemplate } from '@/entities/recurring-template/types';
 import { formatCurrency } from '@/shared/lib/format';
-import { format, subMonths, addMonths } from 'date-fns';
+import { format, subMonths, addMonths, startOfMonth } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { Card, CardContent, CardHeader, CardTitle } from '@/shared/ui/card';
 import { Button } from '@/shared/ui/button';
@@ -141,11 +141,22 @@ export function TransactionsPage() {
 
   const filteredTransactions =
     transactions?.filter((t) => {
-      if (!monthFilter) return true;
       const raw = t.date;
       if (raw == null) return true;
+
       const dateStr = typeof raw === 'string' ? raw : String(raw);
       const yyyyMm = dateStr.slice(0, 7);
+
+      if (monthFilter === 'upcoming-pending-expenses') {
+        const currentMonthStart = startOfMonth(new Date()).getTime();
+        return (
+          t.type === 'expense' &&
+          t.status === 'pending' &&
+          new Date(dateStr).getTime() >= currentMonthStart
+        );
+      }
+
+      if (!monthFilter) return true;
       return yyyyMm === monthFilter;
     }) ?? [];
 
@@ -301,8 +312,20 @@ export function TransactionsPage() {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value={getMonthKey(new Date())}>Este mês</SelectItem>
+                <SelectItem value="upcoming-pending-expenses">A pagar daqui pra frente</SelectItem>
+                <SelectItem value={getMonthKey(addMonths(new Date(), 1))}>Próximo mês</SelectItem>
                 <SelectItem value={getMonthKey(subMonths(new Date(), 1))}>Mês passado</SelectItem>
                 <SelectItem value="all">Todos</SelectItem>
+                {Array.from({ length: 12 }, (_, i) => {
+                  const d = addMonths(new Date(), i + 2);
+                  const key = getMonthKey(d);
+                  const label = format(d, 'MMMM yyyy', { locale: ptBR });
+                  return (
+                    <SelectItem key={key} value={key}>
+                      {label.charAt(0).toUpperCase() + label.slice(1)}
+                    </SelectItem>
+                  );
+                })}
                 {Array.from({ length: 24 }, (_, i) => {
                   const d = subMonths(new Date(), i + 2);
                   const key = getMonthKey(d);
@@ -332,7 +355,9 @@ export function TransactionsPage() {
                 <ChevronLeft className="h-4 w-4" />
               </Button>
               <span className="min-w-[120px] text-center text-sm font-medium">
-                {monthFilter
+                {monthFilter === 'upcoming-pending-expenses'
+                  ? 'A pagar'
+                  : monthFilter
                   ? format(new Date(monthFilter + '-01'), 'MMMM yyyy', { locale: ptBR }).replace(/^./, (c) => c.toUpperCase())
                   : 'Todos os meses'}
               </span>
@@ -343,7 +368,9 @@ export function TransactionsPage() {
                 className="h-8 w-8"
                 onClick={() => {
                   const ref = monthFilter
-                    ? new Date(monthFilter + '-01')
+                    ? monthFilter === 'upcoming-pending-expenses'
+                      ? new Date()
+                      : new Date(monthFilter + '-01')
                     : new Date();
                   setMonthFilter(getMonthKey(addMonths(ref, 1)));
                 }}
@@ -355,6 +382,16 @@ export function TransactionsPage() {
           </div>
         </CardContent>
       </Card>
+
+      {monthFilter === 'upcoming-pending-expenses' && (
+        <Card>
+          <CardContent className="pt-6">
+            <p className="text-sm text-muted-foreground">
+              Exibindo despesas pendentes do mês atual em diante para facilitar o acompanhamento do que ainda falta pagar.
+            </p>
+          </CardContent>
+        </Card>
+      )}
 
       {recurringTemplates && recurringTemplates.length > 0 && (
         <Card>
@@ -578,7 +615,9 @@ export function TransactionsPage() {
             </div>
           ) : transactions && transactions.length > 0 ? (
             <p className="text-muted-foreground">
-              Nenhuma transação neste mês. Use &quot;Todos&quot; no filtro de mês ou navegue para outro mês.
+              {monthFilter === 'upcoming-pending-expenses'
+                ? 'Nenhuma despesa pendente encontrada do mês atual em diante.'
+                : 'Nenhuma transação neste mês. Use "Todos" no filtro de mês ou navegue para outro mês.'}
             </p>
           ) : (
             <p className="text-muted-foreground">

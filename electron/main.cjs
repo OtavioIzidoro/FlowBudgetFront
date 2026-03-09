@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain } = require('electron');
+const { app, BrowserWindow, ipcMain, Notification } = require('electron');
 const fs = require('fs');
 const http = require('http');
 const path = require('path');
@@ -87,10 +87,14 @@ function startLocalServer() {
   });
 }
 
-async function createWindow() {
-  const iconPath = isDev
+function getAppIconPath() {
+  return isDev
     ? path.join(__dirname, '../public/assets/logo.png')
     : path.join(__dirname, '../dist/assets/logo.png');
+}
+
+async function createWindow() {
+  const iconPath = getAppIconPath();
   mainWindow = new BrowserWindow({
     width: 1280,
     height: 800,
@@ -141,6 +145,31 @@ function setupAutoUpdater() {
   autoUpdater.checkForUpdates();
   setInterval(() => autoUpdater.checkForUpdates(), 1000 * 60 * 60 * 4);
 }
+
+ipcMain.handle('electron-show-notification', (_, payload) => {
+  if (!Notification.isSupported() || !payload?.title) {
+    return false;
+  }
+
+  const notification = new Notification({
+    title: payload.title,
+    body: payload.body || '',
+    icon: getAppIconPath(),
+    silent: false,
+  });
+
+  notification.on('click', () => {
+    if (!mainWindow || mainWindow.isDestroyed()) return;
+    if (mainWindow.isMinimized()) {
+      mainWindow.restore();
+    }
+    mainWindow.show();
+    mainWindow.focus();
+  });
+
+  notification.show();
+  return true;
+});
 
 app.whenReady().then(async () => {
   await createWindow();
