@@ -52,6 +52,8 @@ jobs:
 
       - name: Build app
         run: npm run build
+        env:
+          VITE_API_BASE_URL: https://flowbudgetback-production.up.railway.app
 
       - name: Prepare icon
         run: node -e "require('fs').mkdirSync('build',{recursive:true});require('fs').copyFileSync('public/assets/logo.png','build/icon.png')"
