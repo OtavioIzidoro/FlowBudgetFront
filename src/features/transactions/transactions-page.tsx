@@ -1,13 +1,21 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useNewTransactionModalStore } from '@/shared/store/new-transaction-modal-store';
 import {
   getTransactions,
   deleteTransaction,
   updateTransaction,
 } from '@/shared/services/transactions.service';
+import {
+  getRecurringTemplates,
+  deleteRecurringTemplate,
+  confirmRecurringForMonth,
+} from '@/shared/services/recurring.service';
 import { getCategories } from '@/shared/services/categories.service';
 import type { TransactionType, TransactionStatus } from '@/entities/transaction/types';
 import { TransactionFormDialog } from '@/features/transactions/transaction-form-dialog';
+import { RecurringFormDialog } from '@/features/recurring/recurring-form-dialog';
+import type { RecurringTemplate } from '@/entities/recurring-template/types';
 import { formatCurrency } from '@/shared/lib/format';
 import { format, subMonths, addMonths } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -31,7 +39,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/shared/ui/alert-dialog';
-import { Plus, Search, Pencil, Trash2, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Plus, Search, Pencil, Trash2, ChevronLeft, ChevronRight, Repeat, Check } from 'lucide-react';
 import { Switch } from '@/shared/ui/switch';
 import { toServiceError } from '@/shared/lib/errors';
 import { appLogger } from '@/shared/logger';
@@ -58,6 +66,11 @@ const STATUS_LABELS: Record<TransactionStatus, string> = {
   cancelled: 'Cancelado',
 };
 
+function getStatusLabel(status: TransactionStatus, type: TransactionType): string {
+  if (status === 'completed') return type === 'income' ? 'Recebido' : 'Pago';
+  return STATUS_LABELS[status];
+}
+
 function getMonthKey(date: Date): string {
   const y = date.getFullYear();
   const m = String(date.getMonth() + 1).padStart(2, '0');
@@ -66,6 +79,8 @@ function getMonthKey(date: Date): string {
 
 export function TransactionsPage() {
   const queryClient = useQueryClient();
+  const openFromFab = useNewTransactionModalStore((s) => s.openFromFab);
+  const setOpenFromFab = useNewTransactionModalStore((s) => s.setOpenFromFab);
   const [search, setSearch] = useState('');
   const [typeFilter, setTypeFilter] = useState<TransactionType | 'all'>('all');
   const [categoryFilter, setCategoryFilter] = useState<string>('all');
@@ -73,10 +88,21 @@ export function TransactionsPage() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [creatingRecurring, setCreatingRecurring] = useState(false);
+
+  useEffect(() => {
+    if (openFromFab) setCreating(true);
+    setOpenFromFab(false);
+  }, [openFromFab, setOpenFromFab]);
 
   const { data: categories } = useQuery({
     queryKey: ['categories'],
     queryFn: getCategories,
+  });
+
+  const { data: recurringTemplates } = useQuery({
+    queryKey: ['recurring-templates'],
+    queryFn: getRecurringTemplates,
   });
 
   const { data: transactions, isLoading } = useQuery({
@@ -122,6 +148,57 @@ export function TransactionsPage() {
       const yyyyMm = dateStr.slice(0, 7);
       return yyyyMm === monthFilter;
     }) ?? [];
+
+  const deleteRecurringMutation = useMutation({
+    mutationFn: deleteRecurringTemplate,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['recurring-templates'] });
+      useToastStore.getState().success('Recorrência removida.');
+    },
+    onError: (error: unknown) => {
+      const err = toServiceError(error);
+      appLogger.error('Erro ao remover recorrência', {
+        domain: 'recurring',
+        event: 'recurring.delete.error',
+        code: err.code,
+        error: err.message,
+      });
+      useToastStore.getState().error(err.message);
+    },
+  });
+
+  const confirmRecurringMutation = useMutation({
+    mutationFn: ({ template, yearMonth }: { template: RecurringTemplate; yearMonth: string }) =>
+      confirmRecurringForMonth(template, yearMonth),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['transactions'] });
+      useToastStore.getState().success('Transação criada. Confirme se recebeu/pagou na listagem.');
+    },
+    onError: (error: unknown) => {
+      const err = toServiceError(error);
+      appLogger.error('Erro ao confirmar recorrência', {
+        domain: 'recurring',
+        event: 'recurring.confirm.error',
+        code: err.code,
+        error: err.message,
+      });
+      useToastStore.getState().error(err.message);
+    },
+  });
+
+  const isRecurringConfirmedForMonth = (
+    template: RecurringTemplate,
+    yearMonth: string,
+    txList: { date: string; categoryId: string; type: string; value: number }[]
+  ): boolean => {
+    return txList.some(
+      (t) =>
+        t.date.startsWith(yearMonth) &&
+        t.categoryId === template.categoryId &&
+        t.type === template.type &&
+        t.value === template.value
+    );
+  };
 
   const deleteMutation = useMutation({
     mutationFn: deleteTransaction,
@@ -279,6 +356,101 @@ export function TransactionsPage() {
         </CardContent>
       </Card>
 
+      {recurringTemplates && recurringTemplates.length > 0 && (
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between">
+            <CardTitle>Recorrências</CardTitle>
+            <Button variant="outline" size="sm" onClick={() => setCreatingRecurring(true)}>
+              <Repeat className="mr-2 h-4 w-4" />
+              Nova
+            </Button>
+          </CardHeader>
+          <CardContent>
+            <p className="text-sm text-muted-foreground mb-4">
+              Todo mês o valor aparece; você confirma se já recebeu ou pagou.
+            </p>
+            <div className="space-y-2">
+              {recurringTemplates.map((tpl) => {
+                const currentMonth = monthFilter || getMonthKey(new Date());
+                const confirmed = isRecurringConfirmedForMonth(
+                  tpl,
+                  currentMonth,
+                  transactions ?? []
+                );
+                const catName = categoryMap.get(tpl.categoryId)?.name ?? tpl.categoryId;
+                return (
+                  <div
+                    key={tpl.id}
+                    className="flex flex-wrap items-center justify-between gap-2 rounded-lg border p-3"
+                  >
+                    <div>
+                      <span className="font-medium">
+                        {TYPE_LABELS[tpl.type]} - {formatCurrency(tpl.value)}
+                      </span>
+                      <span className="text-muted-foreground ml-2">
+                        {catName}
+                        {tpl.description ? ` • ${tpl.description}` : ''}
+                      </span>
+                      <span className="text-muted-foreground text-sm ml-2">
+                        (dia {tpl.dayOfMonth})
+                      </span>
+                    </div>
+                    <div className="flex gap-2">
+                      {confirmed ? (
+                        <span className="text-sm text-green-600 flex items-center gap-1">
+                          <Check className="h-4 w-4" />
+                          Já confirmado este mês
+                        </span>
+                      ) : (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          disabled={confirmRecurringMutation.isPending}
+                          onClick={() =>
+                            confirmRecurringMutation.mutate({
+                              template: tpl,
+                              yearMonth: currentMonth,
+                            })
+                          }
+                        >
+                          Confirmar recebimento
+                        </Button>
+                      )}
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => deleteRecurringMutation.mutate(tpl.id)}
+                        aria-label="Remover recorrência"
+                      >
+                        <Trash2 className="h-4 w-4 text-destructive" />
+                      </Button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {(!recurringTemplates || recurringTemplates.length === 0) && (
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between">
+            <CardTitle>Recorrências</CardTitle>
+            <Button variant="outline" size="sm" onClick={() => setCreatingRecurring(true)}>
+              <Repeat className="mr-2 h-4 w-4" />
+              Adicionar recorrência
+            </Button>
+          </CardHeader>
+          <CardContent>
+            <p className="text-sm text-muted-foreground">
+              Ex: salário, aluguel. Todo mês o valor aparecerá aqui e você só confirma se recebeu
+              ou pagou.
+            </p>
+          </CardContent>
+        </Card>
+      )}
+
       {chartDataByCategory.length > 0 && (
         <Card>
           <CardHeader>
@@ -319,7 +491,7 @@ export function TransactionsPage() {
                     <th className="pb-2 font-medium">Categoria</th>
                     <th className="pb-2 font-medium">Data</th>
                     <th className="pb-2 font-medium">Status</th>
-                    <th className="pb-2 font-medium">Pago</th>
+                    <th className="pb-2 font-medium">Pago/Recebido</th>
                     <th className="pb-2 font-medium">Parcela</th>
                     <th className="pb-2 font-medium">Observação</th>
                     <th className="w-24 pb-2"></th>
@@ -349,7 +521,7 @@ export function TransactionsPage() {
                           locale: ptBR,
                         })}
                       </td>
-                      <td className="py-2">{STATUS_LABELS[t.status]}</td>
+                      <td className="py-2">{getStatusLabel(t.status, t.type)}</td>
                       <td className="py-2">
                         {t.status !== 'cancelled' ? (
                           <Switch
@@ -361,7 +533,11 @@ export function TransactionsPage() {
                                 status: checked ? 'completed' : 'pending',
                               })
                             }
-                            aria-label={t.status === 'completed' ? 'Marcado como pago' : 'Marcar como pago'}
+                            aria-label={
+                              t.type === 'income'
+                                ? (t.status === 'completed' ? 'Marcado como recebido' : 'Marcar como recebido')
+                                : (t.status === 'completed' ? 'Marcado como pago' : 'Marcar como pago')
+                            }
                           />
                         ) : (
                           '—'
@@ -415,11 +591,23 @@ export function TransactionsPage() {
       {creating && (
         <TransactionFormDialog
           open={creating}
-          onOpenChange={setCreating}
+          onOpenChange={(open) => setCreating(open)}
           categories={categories ?? []}
           onSuccess={() => {
             setCreating(false);
             queryClient.invalidateQueries({ queryKey: ['transactions'] });
+          }}
+        />
+      )}
+
+      {creatingRecurring && (
+        <RecurringFormDialog
+          open={creatingRecurring}
+          onOpenChange={setCreatingRecurring}
+          categories={categories ?? []}
+          onSuccess={() => {
+            setCreatingRecurring(false);
+            queryClient.invalidateQueries({ queryKey: ['recurring-templates'] });
           }}
         />
       )}

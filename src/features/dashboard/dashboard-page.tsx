@@ -8,6 +8,7 @@ import {
 import { getTransactions } from '@/shared/services/transactions.service';
 import { getGoals } from '@/shared/services/goals.service';
 import { getNotifications } from '@/shared/services/notifications.service';
+import { getFinancialInsight } from '@/shared/services/financial-ai.service';
 import { useNotificationStore } from '@/shared/store/notification-store';
 import { useEffect } from 'react';
 import {
@@ -32,7 +33,7 @@ import { Alert, AlertDescription, AlertTitle } from '@/shared/ui/alert';
 import { Skeleton } from '@/shared/ui/skeleton';
 import { formatCurrency } from '@/shared/lib/format';
 import { Link } from '@tanstack/react-router';
-import { Bell, TrendingUp, TrendingDown, Wallet, Target } from 'lucide-react';
+import { Bell, Brain, TrendingUp, TrendingDown, Wallet, Target } from 'lucide-react';
 
 export function DashboardPage() {
   const setNotifications = useNotificationStore((s) => s.setNotifications);
@@ -72,6 +73,11 @@ export function DashboardPage() {
     queryFn: getNotifications,
   });
 
+  const { data: financialInsight, isLoading: insightLoading } = useQuery({
+    queryKey: ['financial-ai', 'insight'],
+    queryFn: getFinancialInsight,
+  });
+
   useEffect(() => {
     if (notifications) {
       setNotifications(notifications);
@@ -104,6 +110,17 @@ export function DashboardPage() {
       progress: g.targetAmount > 0 ? Math.min(100, (g.currentAmount / g.targetAmount) * 100) : 0,
       fullName: g.name,
     })) ?? [];
+
+  const insightReasonLabel =
+    financialInsight?.reason === 'insufficient_data'
+      ? 'A IA precisa de mais dados para gerar uma dica.'
+      : financialInsight?.reason === 'quota_exceeded'
+        ? 'O limite diário de uso da IA foi atingido.'
+        : financialInsight?.reason === 'disabled'
+          ? 'A IA está desativada no backend.'
+          : financialInsight?.reason === 'unavailable'
+            ? 'O serviço de IA está indisponível no momento.'
+            : 'Nenhuma dica disponível agora.';
 
   return (
     <div className="space-y-6 p-6">
@@ -172,6 +189,30 @@ export function DashboardPage() {
           </Card>
         </div>
       )}
+
+      <Card>
+        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+          <CardTitle className="text-base">Insight financeiro do dia</CardTitle>
+          <Brain className="h-4 w-4 text-muted-foreground" />
+        </CardHeader>
+        <CardContent>
+          {insightLoading ? (
+            <Skeleton className="h-20 w-full" />
+          ) : financialInsight?.insight ? (
+            <Alert>
+              <Brain className="h-4 w-4" />
+              <AlertTitle>{financialInsight.insight.headline}</AlertTitle>
+              <AlertDescription>{financialInsight.insight.advice}</AlertDescription>
+            </Alert>
+          ) : (
+            <Alert variant="warning">
+              <Brain className="h-4 w-4" />
+              <AlertTitle>Sem insight disponível</AlertTitle>
+              <AlertDescription>{insightReasonLabel}</AlertDescription>
+            </Alert>
+          )}
+        </CardContent>
+      </Card>
 
       <div className="grid gap-6 lg:grid-cols-2">
         <Card>

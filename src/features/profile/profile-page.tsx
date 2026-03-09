@@ -4,6 +4,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { useAuthStore } from '@/shared/store/auth-store';
 import { Link } from '@tanstack/react-router';
 import { useUserPreferencesStore } from '@/shared/store/user-preferences-store';
+import { useMutation } from '@tanstack/react-query';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/shared/ui/card';
 import { Button } from '@/shared/ui/button';
 import { Input } from '@/shared/ui/input';
@@ -20,6 +21,11 @@ import { useEffect } from 'react';
 import { useTheme } from '@/shared/hooks/use-theme';
 import { KeyRound } from 'lucide-react';
 import type { UserPreferences } from '@/entities/user/types';
+import { TelegramSettingsCard } from '@/features/profile/telegram-settings-card';
+import { PasskeySettingsCard } from '@/features/profile/passkey-settings-card';
+import { updateCurrentUser } from '@/shared/services/users.service';
+import { useToastStore } from '@/shared/store/toast-store';
+import { toServiceError } from '@/shared/lib/errors';
 
 const profileSchema = z.object({
   name: z.string().min(1, 'Informe o nome'),
@@ -30,9 +36,24 @@ type ProfileFormData = z.infer<typeof profileSchema>;
 
 export function ProfilePage() {
   const user = useAuthStore((s) => s.user);
+  const updateUser = useAuthStore((s) => s.updateUser);
   const { theme, setTheme, notificationsEnabled, setNotificationsEnabled } =
     useUserPreferencesStore();
   const { setTheme: applyTheme } = useTheme();
+
+  const mutation = useMutation({
+    mutationFn: (data: ProfileFormData) =>
+      updateCurrentUser({
+        name: data.name,
+      }),
+    onSuccess: (updatedUser) => {
+      updateUser(updatedUser);
+      useToastStore.getState().success('Perfil atualizado.');
+    },
+    onError: (error: unknown) => {
+      useToastStore.getState().error(toServiceError(error).message);
+    },
+  });
 
   const { register, handleSubmit, reset } = useForm<ProfileFormData>({
     resolver: zodResolver(profileSchema),
@@ -54,17 +75,20 @@ export function ProfilePage() {
           <CardTitle>Dados do usuário</CardTitle>
         </CardHeader>
         <CardContent>
-          <form onSubmit={handleSubmit(() => {})} className="space-y-4">
+          <form
+            onSubmit={handleSubmit((data) => mutation.mutate(data))}
+            className="space-y-4"
+          >
             <div className="space-y-2">
               <Label htmlFor="name">Nome</Label>
               <Input id="name" {...register('name')} />
             </div>
             <div className="space-y-2">
               <Label htmlFor="email">E-mail</Label>
-              <Input id="email" type="email" {...register('email')} />
+              <Input id="email" type="email" disabled {...register('email')} />
             </div>
-            <Button type="submit" disabled>
-              Salvar (indisponível em modo demo)
+            <Button type="submit" disabled={mutation.isPending}>
+              {mutation.isPending ? 'Salvando...' : 'Salvar'}
             </Button>
           </form>
         </CardContent>
@@ -84,6 +108,8 @@ export function ProfilePage() {
           </Button>
         </CardContent>
       </Card>
+
+      <PasskeySettingsCard />
 
       <Card>
         <CardHeader>
@@ -123,6 +149,8 @@ export function ProfilePage() {
           </div>
         </CardContent>
       </Card>
+
+      <TelegramSettingsCard />
     </div>
   );
 }

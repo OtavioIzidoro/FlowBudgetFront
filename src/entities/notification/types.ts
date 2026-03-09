@@ -6,5 +6,7 @@ export interface Notification {
   title: string;
   message: string;
   read: boolean;
+  scheduleFor?: string | null;
+  sentAt?: string | null;
   createdAt: string;
 }

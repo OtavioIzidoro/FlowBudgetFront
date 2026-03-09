@@ -1,8 +1,11 @@
 import { z } from 'zod';
+import { useCallback } from 'react';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useForm, Controller } from 'react-hook-form';
-import { useMutation } from '@tanstack/react-query';
+import { useMutation, useQuery } from '@tanstack/react-query';
 import { createTransaction, updateTransaction } from '@/shared/services/transactions.service';
+import { getTransactions } from '@/shared/services/transactions.service';
+import { createNotification } from '@/shared/services/notifications.service';
 import type { Transaction } from '@/entities/transaction/types';
 import type { Category } from '@/entities/category/types';
 import {
@@ -26,6 +29,12 @@ import { toServiceError } from '@/shared/lib/errors';
 import { appLogger } from '@/shared/logger';
 import { useToastStore } from '@/shared/store/toast-store';
 import { Spinner } from '@/shared/ui/spinner';
+import { Switch } from '@/shared/ui/switch';
+import { formatCurrency } from '@/shared/lib/format';
+import { format } from 'date-fns';
+import { ptBR } from 'date-fns/locale';
+import { getQuickTransactions, saveQuickTransaction } from '@/shared/lib/quick-transactions';
+import type { QuickTransaction } from '@/shared/lib/quick-transactions';
 
 const transactionSchema = z.object({
   type: z.enum(['income', 'expense']),
@@ -34,6 +43,9 @@ const transactionSchema = z.object({
   date: z.string().min(1, 'Informe a data'),
   status: z.enum(['pending', 'completed', 'cancelled']),
   description: z.string().optional(),
+  enableReminder: z.boolean().optional(),
+  reminderDays: z.coerce.number().min(1).max(30).optional(),
+  saveAsQuick: z.boolean().optional(),
   installmentsTotal: z.coerce
     .number()
     .transform((v) => (Number.isNaN(v) ? 1 : v))
@@ -52,6 +64,16 @@ function formatCentsToInput(cents: number): string {
   if (cents === 0) return '';
   const reais = (cents / 100).toFixed(2).replace('.', ',');
   return reais.replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+}
+
+function buildReminderScheduleFor(date: string, remindBeforeDays: number): string {
+  const [yearPart, monthPart, dayPart] = date.split('-');
+  const year = Number(yearPart);
+  const month = Number(monthPart);
+  const day = Number(dayPart);
+  const scheduleDate = new Date(year, month - 1, day, 9, 0, 0, 0);
+  scheduleDate.setDate(scheduleDate.getDate() - remindBeforeDays);
+  return scheduleDate.toISOString();
 }
 
 interface TransactionFormDialogProps {
@@ -82,10 +104,28 @@ export function TransactionFormDialog({
         description: data.description || undefined,
         installmentsTotal: data.type === 'expense' ? data.installmentsTotal : undefined,
       };
-      if (isEdit) {
-        return updateTransaction({ ...payload, id: transaction.id });
+      const t = isEdit
+        ? await updateTransaction({ ...payload, id: transaction.id })
+        : await createTransaction(payload);
+      if (!isEdit && data.type === 'expense' && data.enableReminder) {
+        const cat = categories.find((c) => c.id === data.categoryId);
+        const days = data.reminderDays ?? 1;
+        await createNotification({
+          type: 'due_date',
+          title: `Despesa vence em ${format(new Date(data.date), "dd/MM/yyyy", { locale: ptBR })}${days > 1 ? ` (lembrete ${days} dias antes)` : ''}`,
+          message: `${cat?.name ?? 'Despesa'} - ${formatCurrency(parseValueToCents(data.value))}${data.description ? ` - ${data.description}` : ''}`,
+          scheduleFor: buildReminderScheduleFor(data.date, days),
+        });
       }
-      return createTransaction(payload);
+      if (!isEdit && data.saveAsQuick) {
+        saveQuickTransaction({
+          type: data.type as 'income' | 'expense',
+          value: parseValueToCents(data.value),
+          categoryId: data.categoryId,
+          description: data.description ?? '',
+        });
+      }
+      return t;
     },
     onSuccess: () => {
       onSuccess();
@@ -104,7 +144,7 @@ export function TransactionFormDialog({
     },
   });
 
-  const { register, handleSubmit, control, formState: { errors }, watch } = useForm<TransactionFormData>({
+  const { register, handleSubmit, control, formState: { errors }, watch, setValue } = useForm<TransactionFormData>({
     resolver: zodResolver(transactionSchema),
     defaultValues: transaction
       ? {
@@ -123,12 +163,36 @@ export function TransactionFormDialog({
           date: new Date().toISOString().slice(0, 10),
           status: 'completed',
           description: '',
+          enableReminder: false,
+          reminderDays: 3,
+          saveAsQuick: false,
           installmentsTotal: 1,
         },
   });
 
+  const quickList = getQuickTransactions();
+  const descWatch = watch('description');
+  const { data: suggestedTransactions } = useQuery({
+    queryKey: ['transactions', 'suggest', descWatch],
+    queryFn: () => getTransactions({ search: descWatch || undefined }),
+    enabled: !isEdit && (descWatch?.length ?? 0) >= 2,
+  });
+  const suggestedCategoryId = suggestedTransactions?.[0]?.categoryId;
+  const suggestedCategory = suggestedCategoryId ? categories.find((c) => c.id === suggestedCategoryId) : undefined;
+
   const typeWatch = watch('type');
   const showInstallments = typeWatch === 'expense' && !isEdit;
+  const showReminder = typeWatch === 'expense' && !isEdit;
+
+  const applyQuick = useCallback(
+    (qt: QuickTransaction) => {
+      setValue('type', qt.type);
+      setValue('value', formatCentsToInput(qt.value));
+      setValue('categoryId', qt.categoryId);
+      setValue('description', qt.description);
+    },
+    [setValue]
+  );
 
   const onSubmit = (data: TransactionFormData) => {
     mutation.mutate(data);
@@ -144,6 +208,27 @@ export function TransactionFormDialog({
         </DialogHeader>
         <form onSubmit={handleSubmit(onSubmit)}>
           <div className="grid gap-4 py-4">
+            {!isEdit && quickList.length > 0 && (
+              <div className="space-y-2">
+                <Label>Rápidos</Label>
+                <div className="flex flex-wrap gap-2">
+                  {quickList.map((qt) => {
+                    const cat = categories.find((c) => c.id === qt.categoryId);
+                    return (
+                      <Button
+                        key={qt.id}
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => applyQuick(qt)}
+                      >
+                        {cat?.name ?? (qt.description || formatCurrency(qt.value))}
+                      </Button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label>Tipo</Label>
@@ -200,10 +285,22 @@ export function TransactionFormDialog({
               {errors.categoryId && (
                 <p className="text-sm text-destructive">{errors.categoryId.message}</p>
               )}
+            {!isEdit && suggestedCategory && (
+              <p className="text-xs text-muted-foreground">
+                Sugestão:{' '}
+                <button
+                  type="button"
+                  className="underline hover:no-underline"
+                  onClick={() => setValue('categoryId', suggestedCategory.id)}
+                >
+                  {suggestedCategory.name}
+                </button>
+              </p>
+            )}
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label>Data</Label>
+                <Label>{typeWatch === 'expense' ? 'Data de vencimento' : 'Data'}</Label>
                 <Input type="date" {...register('date')} />
                 {errors.date && (
                   <p className="text-sm text-destructive">{errors.date.message}</p>
@@ -229,10 +326,71 @@ export function TransactionFormDialog({
                 />
               </div>
             </div>
+            {showReminder && (
+              <div className="flex items-center gap-2">
+                <Controller
+                  name="enableReminder"
+                  control={control}
+                  render={({ field }) => (
+                    <Switch
+                      id="enableReminder"
+                      checked={field.value ?? false}
+                      onCheckedChange={field.onChange}
+                    />
+                  )}
+                />
+                <Label htmlFor="enableReminder" className="font-normal cursor-pointer">
+                  Criar lembrete (notificação de vencimento)
+                </Label>
+              </div>
+            )}
+            {showReminder && (
+              <div className="space-y-2">
+                <Label>Avisar com quantos dias de antecedência</Label>
+                <Controller
+                  name="reminderDays"
+                  control={control}
+                  render={({ field }) => (
+                    <Select
+                      value={String(field.value ?? 3)}
+                      onValueChange={(v) => field.onChange(Number(v))}
+                    >
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="1">1 dia antes</SelectItem>
+                        <SelectItem value="3">3 dias antes</SelectItem>
+                        <SelectItem value="5">5 dias antes</SelectItem>
+                        <SelectItem value="7">7 dias antes</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  )}
+                />
+              </div>
+            )}
             <div className="space-y-2">
               <Label>Observação</Label>
               <Input placeholder="Opcional" {...register('description')} />
             </div>
+            {!isEdit && (
+              <div className="flex items-center gap-2">
+                <Controller
+                  name="saveAsQuick"
+                  control={control}
+                  render={({ field }) => (
+                    <Switch
+                      id="saveAsQuick"
+                      checked={field.value ?? false}
+                      onCheckedChange={field.onChange}
+                    />
+                  )}
+                />
+                <Label htmlFor="saveAsQuick" className="font-normal cursor-pointer">
+                  Salvar como transação rápida
+                </Label>
+              </div>
+            )}
             {showInstallments && (
               <div className="space-y-2">
                 <Label htmlFor="installmentsTotal">Número de parcelas</Label>

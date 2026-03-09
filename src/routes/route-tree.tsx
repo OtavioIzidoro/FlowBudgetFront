@@ -14,6 +14,7 @@ import { ProjectionsPage } from '@/features/projections/projections-page';
 import { ProfilePage } from '@/features/profile/profile-page';
 import { CreateUserPage } from '@/features/admin/create-user-page';
 import { ChangePasswordPage } from '@/features/auth/change-password-page';
+import { BillsPage } from '@/features/bills/bills-page';
 import { useAuthStore } from '@/shared/store/auth-store';
 
 interface RouterContext {
@@ -52,6 +53,12 @@ const transactionsRoute = createRoute({
   getParentRoute: () => authenticatedRoute,
   path: '/transactions',
   component: TransactionsPage,
+});
+
+const billsRoute = createRoute({
+  getParentRoute: () => authenticatedRoute,
+  path: '/bills',
+  component: BillsPage,
 });
 
 const categoriesRoute = createRoute({
@@ -99,6 +106,7 @@ const changePasswordRoute = createRoute({
 authenticatedRoute.addChildren([
   dashboardRoute,
   transactionsRoute,
+  billsRoute,
   categoriesRoute,
   goalsRoute,
   notificationsRoute,

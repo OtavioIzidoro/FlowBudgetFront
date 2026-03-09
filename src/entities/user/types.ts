@@ -4,6 +4,8 @@ export interface User {
   email: string;
   role?: 'user' | 'super_admin';
   passwordChangeRequired?: boolean;
+  createdAt?: string;
+  updatedAt?: string;
 }
 
 

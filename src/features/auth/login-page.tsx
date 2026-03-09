@@ -4,7 +4,7 @@ import { useForm, Controller } from 'react-hook-form';
 import { useNavigate } from '@tanstack/react-router';
 import { useMutation } from '@tanstack/react-query';
 import { useState, useEffect } from 'react';
-import { login, loginWithBiometric } from '@/shared/services/auth.service';
+import { login } from '@/shared/services/auth.service';
 import { useAuthStore } from '@/shared/store/auth-store';
 import { appLogger } from '@/shared/logger';
 import { toServiceError, normalizeZodError } from '@/shared/lib/errors';
@@ -26,9 +26,9 @@ import { Alert, AlertDescription, AlertTitle } from '@/shared/ui/alert';
 import { Spinner } from '@/shared/ui/spinner';
 import { Fingerprint } from 'lucide-react';
 import {
-  isBiometricSupported,
-  hasBiometricCredential,
-} from '@/shared/services/biometric-auth.service';
+  isPasskeySupported,
+  loginWithPasskey,
+} from '@/shared/services/passkeys.service';
 
 const loginSchema = z.object({
   email: z.string().min(1, 'Informe o e-mail').email('E-mail inválido'),
@@ -46,7 +46,7 @@ export function LoginPage() {
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
   const user = useAuthStore((s) => s.user);
   const [formError, setFormError] = useState<string | null>(null);
-  const [biometricAvailable, setBiometricAvailable] = useState(false);
+  const [passkeyAvailable, setPasskeyAvailable] = useState(false);
   const [initialEmail] = useState(() => {
     try {
       return typeof window !== 'undefined'
@@ -65,7 +65,7 @@ export function LoginPage() {
   }, [isAuthenticated, user?.passwordChangeRequired, navigate]);
 
   useEffect(() => {
-    setBiometricAvailable(isBiometricSupported());
+    setPasskeyAvailable(isPasskeySupported());
   }, []);
 
   const mutation = useMutation({
@@ -103,30 +103,30 @@ export function LoginPage() {
     },
   });
 
-  const biometricMutation = useMutation({
-    mutationFn: loginWithBiometric,
+  const passkeyMutation = useMutation({
+    mutationFn: (email: string) => loginWithPasskey(email),
     onSuccess: (data) => {
       setAuth(data.user, data.token);
-      useToastStore.getState().success('Login por biometria realizado com sucesso.');
+      useToastStore.getState().success('Login com passkey realizado com sucesso.');
       const next = data.user.passwordChangeRequired ? '/change-password' : '/dashboard';
       navigate({ to: next as '/' });
     },
     onError: (error: unknown) => {
       const err = toServiceError(error);
       if (err.code !== 'CANCELLED') {
-        appLogger.warn('Erro no login por biometria', {
+        appLogger.warn('Erro no login com passkey', {
           domain: 'auth',
-          event: 'biometric.login.error',
+          event: 'passkey.login.error',
           code: err.code,
           error: err.message,
         });
-        const isWebAuthnError =
+        const isPasskeyError =
           err.message.includes('timed out') ||
           err.message.includes('not allowed') ||
           err.message.includes('webauthn') ||
           err.message.includes('privacy-considerations');
-        const friendlyMessage = isWebAuthnError
-          ? 'A autenticação biométrica falhou (timeout ou restrição). Use e-mail e senha para entrar.'
+        const friendlyMessage = isPasskeyError
+          ? 'O login com passkey falhou. Tente novamente ou use e-mail e senha.'
           : err.message;
         setFormError(friendlyMessage);
         useToastStore.getState().error(friendlyMessage);
@@ -140,6 +140,7 @@ export function LoginPage() {
     control,
     formState: { errors },
     setError,
+    watch,
   } = useForm<LoginFormData>({
     resolver: zodResolver(loginSchema),
     defaultValues: {
@@ -165,6 +166,33 @@ export function LoginPage() {
       return;
     }
     mutation.mutate(data);
+  };
+
+  const emailValue = watch('email');
+  const rememberValue = watch('remember');
+
+  const handlePasskeyLogin = () => {
+    const email = emailValue?.trim();
+    if (!email) {
+      const message = 'Informe o e-mail para entrar com passkey.';
+      setFormError(message);
+      useToastStore.getState().error(message);
+      return;
+    }
+    setFormError(null);
+    passkeyMutation.mutate(email, {
+      onSuccess: () => {
+        try {
+          if (rememberValue && email) {
+            localStorage.setItem(REMEMBERED_EMAIL_KEY, email);
+          } else {
+            localStorage.removeItem(REMEMBERED_EMAIL_KEY);
+          }
+        } catch {
+          //
+        }
+      },
+    });
   };
 
   return (
@@ -283,25 +311,23 @@ export function LoginPage() {
                 'Entrar'
               )}
             </Button>
-            {biometricAvailable && (
+            {passkeyAvailable && (
               <Button
                 type="button"
                 variant="outline"
                 className="w-full transition-all duration-200 hover:scale-[1.02] hover:border-primary/50 active:scale-[0.98]"
-                disabled={biometricMutation.isPending}
-                onClick={() => biometricMutation.mutate()}
+                disabled={passkeyMutation.isPending}
+                onClick={handlePasskeyLogin}
               >
-                {biometricMutation.isPending ? (
+                {passkeyMutation.isPending ? (
                   <>
                     <Spinner size="sm" className="mr-2" />
-                    Autenticando...
+                    Validando...
                   </>
                 ) : (
                   <>
                     <Fingerprint className="mr-2 h-4 w-4" />
-                    {hasBiometricCredential()
-                      ? 'Entrar com biometria'
-                      : 'Registrar e entrar com biometria'}
+                    Entrar com passkey
                   </>
                 )}
               </Button>

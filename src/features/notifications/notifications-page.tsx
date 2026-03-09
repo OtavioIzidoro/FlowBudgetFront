@@ -18,6 +18,12 @@ const TYPE_LABELS: Record<string, string> = {
   info: 'Informação',
 };
 
+function formatTimestamp(value: string): string {
+  return format(new Date(value), 'dd/MM/yyyy HH:mm', {
+    locale: ptBR,
+  });
+}
+
 export function NotificationsPage() {
   const queryClient = useQueryClient();
   const { markAsRead, markAllAsRead, setNotifications } = useNotificationStore();
@@ -68,11 +74,15 @@ export function NotificationsPage() {
                         {TYPE_LABELS[n.type] ?? n.type} · {n.title}
                       </span>
                       <div className="flex items-center gap-2">
-                        <span className="text-xs font-normal text-muted-foreground">
-                          {format(new Date(n.createdAt), "dd/MM/yyyy HH:mm", {
-                            locale: ptBR,
-                          })}
-                        </span>
+                        <div className="text-right text-xs font-normal text-muted-foreground">
+                          <div>Criada: {formatTimestamp(n.createdAt)}</div>
+                          {n.scheduleFor && (
+                            <div>Agendada: {formatTimestamp(n.scheduleFor)}</div>
+                          )}
+                          {n.sentAt && (
+                            <div>Enviada: {formatTimestamp(n.sentAt)}</div>
+                          )}
+                        </div>
                         {!n.read && (
                           <Button
                             variant="ghost"

@@ -3,6 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { getGoals, deleteGoal } from '@/shared/services/goals.service';
 import type { Goal } from '@/entities/goal/types';
 import { GoalFormDialog } from '@/features/goals/goal-form-dialog';
+import { GoalContributeDialog } from '@/features/goals/goal-contribute-dialog';
 import { formatCurrency } from '@/shared/lib/format';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -18,7 +19,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/shared/ui/alert-dialog';
-import { Plus, Pencil, Trash2, Target, CheckCircle } from 'lucide-react';
+import { Plus, Pencil, Trash2, Target, CheckCircle, Wallet } from 'lucide-react';
 import { toServiceError } from '@/shared/lib/errors';
 import { appLogger } from '@/shared/logger';
 
@@ -33,6 +34,7 @@ export function GoalsPage() {
   const [creating, setCreating] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [contributingId, setContributingId] = useState<string | null>(null);
 
   const { data: goals, isLoading } = useQuery({
     queryKey: ['goals'],
@@ -57,6 +59,7 @@ export function GoalsPage() {
   });
 
   const editingGoal = editingId ? goals?.find((g) => g.id === editingId) : undefined;
+  const contributingGoal = contributingId ? goals?.find((g) => g.id === contributingId) : undefined;
 
   return (
     <div className="space-y-6 p-6">
@@ -120,6 +123,17 @@ export function GoalsPage() {
                       </div>
                     </div>
                     <div className="flex gap-1">
+                      {g.status !== 'achieved' && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setContributingId(g.id)}
+                          aria-label="Adicionar valor"
+                        >
+                          <Wallet className="mr-1 h-4 w-4" />
+                          Adicionar
+                        </Button>
+                      )}
                       <Button
                         variant="ghost"
                         size="icon"
@@ -167,6 +181,15 @@ export function GoalsPage() {
             setEditingId(null);
             queryClient.invalidateQueries({ queryKey: ['goals'] });
           }}
+        />
+      )}
+
+      {contributingGoal && (
+        <GoalContributeDialog
+          open={!!contributingId}
+          onOpenChange={(open) => !open && setContributingId(null)}
+          goal={contributingGoal}
+          onSuccess={() => setContributingId(null)}
         />
       )}
 
