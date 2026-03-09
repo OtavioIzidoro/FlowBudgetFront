@@ -40,6 +40,7 @@ export async function updateCurrentUser(
 
 export async function listUsers(params?: ListUsersParams): Promise<ListUsersResponse> {
   return apiRequest<ListUsersResponse>('/users', {
+    unwrapData: false,
     params: {
       search: params?.search || undefined,
       role: params?.role && params.role !== 'all' ? params.role : undefined,

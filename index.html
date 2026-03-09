@@ -2,6 +2,29 @@
 <html lang="pt-BR">
   <head>
     <meta charset="UTF-8" />
+    <script>
+      (() => {
+        const storageKey = 'flowbudget-preferences';
+        const systemTheme = window.matchMedia('(prefers-color-scheme: dark)').matches
+          ? 'dark'
+          : 'light';
+
+        try {
+          const raw = window.localStorage.getItem(storageKey);
+          const parsed = raw ? JSON.parse(raw) : null;
+          const preference = parsed?.state?.theme ?? 'system';
+          const resolvedTheme = preference === 'system' ? systemTheme : preference;
+
+          document.documentElement.classList.remove('light', 'dark');
+          document.documentElement.classList.add(resolvedTheme);
+          document.documentElement.style.colorScheme = resolvedTheme;
+        } catch {
+          document.documentElement.classList.remove('light', 'dark');
+          document.documentElement.classList.add(systemTheme);
+          document.documentElement.style.colorScheme = systemTheme;
+        }
+      })();
+    </script>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link

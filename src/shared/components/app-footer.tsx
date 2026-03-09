@@ -11,18 +11,20 @@ export function AppFooter({ className }: AppFooterProps) {
   return (
     <footer
       className={cn(
-        'border-t bg-background/95 px-4 py-3 text-center text-xs text-muted-foreground',
+        'border-t bg-background/95 px-4 py-3 text-xs text-muted-foreground',
         className
       )}
     >
-      <div className="flex flex-col items-center justify-center gap-2 sm:flex-row sm:gap-3">
-        <span>Desenvolvido por</span>
-        <img
-          src="/assets/logoizitec.png"
-          alt={COMPANY_NAME}
-          className="h-8 w-auto object-contain"
-        />
-        <span>&copy; {currentYear} {COMPANY_NAME}. Todos os direitos reservados.</span>
+      <div className="flex flex-col items-center justify-center gap-2 text-center">
+        <div className="flex flex-col items-center justify-center gap-2">
+          <span>Desenvolvido por</span>
+          <img
+            src="/assets/logoizitec.png"
+            alt={COMPANY_NAME}
+            className="h-8 w-auto object-contain"
+          />
+          <span>&copy; {currentYear} {COMPANY_NAME}. Todos os direitos reservados.</span>
+        </div>
       </div>
     </footer>
   );

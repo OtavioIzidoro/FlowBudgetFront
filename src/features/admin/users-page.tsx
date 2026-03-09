@@ -5,7 +5,7 @@ import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { Search, UserCog, UserPlus, Users } from 'lucide-react';
 import { useAuthStore } from '@/shared/store/auth-store';
-import { isSuperAdmin } from '@/shared/lib/auth';
+import { isAdmin, isSuperAdmin } from '@/shared/lib/auth';
 import {
   listUsers,
   updateUserStatus,
@@ -50,7 +50,7 @@ function formatDate(value?: string): string {
     return '-';
   }
 
-  return format(date, 'dd/MM/yyyy', { locale: ptBR });
+  return format(date, "dd/MM/yyyy 'às' HH:mm:ss", { locale: ptBR });
 }
 
 function getStatusClassName(status?: User['status']): string {
@@ -65,7 +65,8 @@ export function UsersPage() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const currentUser = useAuthStore((state) => state.user);
-  const canAccess = isSuperAdmin(currentUser);
+  const canAccess = isAdmin(currentUser);
+  const canCreateUser = isSuperAdmin(currentUser);
 
   const [searchInput, setSearchInput] = useState('');
   const [filters, setFilters] = useState<ListUsersParams>({
@@ -177,7 +178,7 @@ export function UsersPage() {
           </p>
         </div>
 
-        {canAccess && (
+        {canCreateUser && (
           <Button asChild>
             <Link to={'/admin/users/create' as '/'}>
               <UserPlus className="mr-2 h-4 w-4" />

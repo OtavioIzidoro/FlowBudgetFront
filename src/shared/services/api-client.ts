@@ -18,7 +18,7 @@ function getToken(): string | null {
   }
 }
 
-async function handleResponse<T>(res: Response): Promise<T> {
+async function handleResponse<T>(res: Response, unwrapData = true): Promise<T> {
   const text = await res.text();
   let json: Record<string, unknown> | null = null;
   if (text) {
@@ -36,7 +36,7 @@ async function handleResponse<T>(res: Response): Promise<T> {
     };
     throw err;
   }
-  if (json && 'data' in json) {
+  if (unwrapData && json && 'data' in json) {
     return json.data as T;
   }
   return json as unknown as T;
@@ -47,6 +47,7 @@ export interface RequestOptions {
   body?: unknown;
   params?: Record<string, string | number | undefined>;
   skipAuthRefresh?: boolean;
+  unwrapData?: boolean;
 }
 
 let refreshPromise: Promise<string | null> | null = null;
@@ -143,9 +144,9 @@ export async function apiRequest<T>(path: string, options: RequestOptions = {}):
         ...options,
         skipAuthRefresh: true,
       }, refreshedToken);
-      return handleResponse<T>(retryResponse);
+      return handleResponse<T>(retryResponse, options.unwrapData);
     }
   }
 
-  return handleResponse<T>(response);
+  return handleResponse<T>(response, options.unwrapData);
 }

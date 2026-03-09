@@ -20,9 +20,7 @@ import {
 import { Plus, Pencil, Trash2 } from 'lucide-react';
 import { toServiceError } from '@/shared/lib/errors';
 import { appLogger } from '@/shared/logger';
-import { getCategoryIcon } from '@/shared/lib/category-icons';
-
-const ICON_OPTIONS = ['utensils', 'car', 'heart', 'briefcase', 'film', 'home', 'shopping-bag'];
+import { CATEGORY_ICON_OPTIONS, getCategoryIcon } from '@/shared/lib/category-icons';
 
 export function CategoriesPage() {
   const queryClient = useQueryClient();
@@ -124,7 +122,7 @@ export function CategoriesPage() {
         <CategoryFormDialog
           open={creating}
           onOpenChange={setCreating}
-          iconOptions={ICON_OPTIONS}
+          iconOptions={CATEGORY_ICON_OPTIONS}
           onSuccess={() => {
             setCreating(false);
             queryClient.invalidateQueries({ queryKey: ['categories'] });
@@ -137,7 +135,7 @@ export function CategoriesPage() {
           open={!!editingId}
           onOpenChange={(open) => !open && setEditingId(null)}
           category={editingCategory}
-          iconOptions={ICON_OPTIONS}
+          iconOptions={CATEGORY_ICON_OPTIONS}
           onSuccess={() => {
             setEditingId(null);
             queryClient.invalidateQueries({ queryKey: ['categories'] });

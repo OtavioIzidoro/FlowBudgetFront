@@ -2,7 +2,7 @@ import { z } from 'zod';
 import { useCallback, useEffect } from 'react';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useForm, Controller } from 'react-hook-form';
-import { useMutation, useQuery } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { createTransaction, updateTransaction } from '@/shared/services/transactions.service';
 import { getTransactions } from '@/shared/services/transactions.service';
 import { createNotification } from '@/shared/services/notifications.service';
@@ -112,6 +112,7 @@ export function TransactionFormDialog({
   onSuccess,
 }: TransactionFormDialogProps) {
   const isEdit = !!transaction;
+  const queryClient = useQueryClient();
 
   const mutation = useMutation({
     mutationFn: async (data: TransactionFormData) => {
@@ -150,6 +151,7 @@ export function TransactionFormDialog({
       return t;
     },
     onSuccess: (savedTransaction) => {
+      void queryClient.invalidateQueries({ queryKey: ['notifications'] });
       void onSuccess(savedTransaction);
       onOpenChange(false);
       useToastStore.getState().success(isEdit ? 'Transação atualizada.' : 'Transação criada.');

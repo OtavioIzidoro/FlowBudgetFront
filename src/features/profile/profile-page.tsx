@@ -40,7 +40,7 @@ export function ProfilePage() {
   const updateUser = useAuthStore((s) => s.updateUser);
   const { theme, setTheme, notificationsEnabled, setNotificationsEnabled } =
     useUserPreferencesStore();
-  const { setTheme: applyTheme } = useTheme();
+  const { applyTheme } = useTheme();
   const {
     canCheckForUpdates,
     checkForUpdates,

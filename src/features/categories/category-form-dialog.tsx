@@ -23,7 +23,7 @@ import {
 } from '@/shared/ui/select';
 import { toServiceError } from '@/shared/lib/errors';
 import { appLogger } from '@/shared/logger';
-import { getCategoryIcon } from '@/shared/lib/category-icons';
+import { getCategoryIcon, normalizeCategoryIconName } from '@/shared/lib/category-icons';
 
 const categorySchema = z.object({
   name: z.string().min(1, 'Informe o nome'),
@@ -71,8 +71,8 @@ export function CategoryFormDialog({
   const mutation = useMutation({
     mutationFn: (data: CategoryFormData) =>
       isEdit
-        ? updateCategory({ id: category.id, ...data })
-        : createCategory(data),
+        ? updateCategory({ id: category.id, ...data, icon: normalizeCategoryIconName(data.icon) })
+        : createCategory({ ...data, icon: normalizeCategoryIconName(data.icon) }),
     onSuccess: () => {
       onSuccess();
       onOpenChange(false);
@@ -91,7 +91,11 @@ export function CategoryFormDialog({
   const { register, handleSubmit, control, formState: { errors } } = useForm<CategoryFormData>({
     resolver: zodResolver(categorySchema),
     defaultValues: category
-      ? { name: category.name, color: category.color, icon: category.icon }
+      ? {
+          name: category.name,
+          color: category.color,
+          icon: normalizeCategoryIconName(category.icon),
+        }
       : { name: '', color: COLOR_OPTIONS[0], icon: iconOptions[0] },
   });
 

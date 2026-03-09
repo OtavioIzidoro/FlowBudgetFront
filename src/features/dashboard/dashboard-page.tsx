@@ -561,7 +561,9 @@ export function DashboardPage() {
                   <XAxis dataKey="month" />
                   <YAxis tickFormatter={(v) => `${v / 1000}k`} />
                   <Tooltip formatter={(value: number) => formatCurrency(value)} />
-                  <Legend />
+                  <Legend
+                    formatter={(value) => <span className="text-foreground">{value}</span>}
+                  />
                   <Bar
                     dataKey="income"
                     fill="url(#incomeBarGradient)"

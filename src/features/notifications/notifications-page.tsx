@@ -1,6 +1,10 @@
 import { useState } from 'react';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { getNotifications } from '@/shared/services/notifications.service';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import {
+  getNotifications,
+  markAllNotificationsAsRead,
+  markNotificationAsRead,
+} from '@/shared/services/notifications.service';
 import { useNotificationStore } from '@/shared/store/notification-store';
 import { useEffect } from 'react';
 import { format } from 'date-fns';
@@ -10,6 +14,9 @@ import { Button } from '@/shared/ui/button';
 import { Alert, AlertDescription, AlertTitle } from '@/shared/ui/alert';
 import { BellOff, CheckCheck, Plus } from 'lucide-react';
 import { CreateAlertDialog } from '@/features/notifications/create-alert-dialog';
+import { toServiceError } from '@/shared/lib/errors';
+import { useToastStore } from '@/shared/store/toast-store';
+import { appLogger } from '@/shared/logger';
 
 const TYPE_LABELS: Record<string, string> = {
   due_date: 'Vencimento',
@@ -26,12 +33,50 @@ function formatTimestamp(value: string): string {
 
 export function NotificationsPage() {
   const queryClient = useQueryClient();
-  const { markAsRead, markAllAsRead, setNotifications } = useNotificationStore();
+  const { setNotifications } = useNotificationStore();
   const [creating, setCreating] = useState(false);
 
   const { data: notifications } = useQuery({
     queryKey: ['notifications'],
     queryFn: getNotifications,
+  });
+
+  const unreadNotifications = notifications?.filter((notification) => !notification.read) ?? [];
+
+  const markOneAsReadMutation = useMutation({
+    mutationFn: markNotificationAsRead,
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ['notifications'] });
+      useToastStore.getState().success('Notificação marcada como lida.');
+    },
+    onError: (error: unknown) => {
+      const err = toServiceError(error);
+      appLogger.warn('Erro ao marcar notificação como lida', {
+        domain: 'notification',
+        event: 'notification.read.error',
+        code: err.code,
+        error: err.message,
+      });
+      useToastStore.getState().error(err.message);
+    },
+  });
+
+  const markAllAsReadMutation = useMutation({
+    mutationFn: markAllNotificationsAsRead,
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ['notifications'] });
+      useToastStore.getState().success('Todas as notificações foram marcadas como lidas.');
+    },
+    onError: (error: unknown) => {
+      const err = toServiceError(error);
+      appLogger.warn('Erro ao marcar todas as notificações como lidas', {
+        domain: 'notification',
+        event: 'notification.read_all.error',
+        code: err.code,
+        error: err.message,
+      });
+      useToastStore.getState().error(err.message);
+    },
   });
 
   useEffect(() => {
@@ -49,9 +94,13 @@ export function NotificationsPage() {
             <Plus className="mr-2 h-4 w-4" />
             Novo alerta
           </Button>
-          <Button variant="outline" onClick={() => markAllAsRead()}>
+          <Button
+            variant="outline"
+            onClick={() => markAllAsReadMutation.mutate()}
+            disabled={markAllAsReadMutation.isPending || unreadNotifications.length === 0}
+          >
             <CheckCheck className="mr-2 h-4 w-4" />
-            Marcar todas como lidas
+            {markAllAsReadMutation.isPending ? 'Marcando...' : 'Marcar todas como lidas'}
           </Button>
         </div>
       </div>
@@ -87,7 +136,11 @@ export function NotificationsPage() {
                           <Button
                             variant="ghost"
                             size="sm"
-                            onClick={() => markAsRead(n.id)}
+                            onClick={() => markOneAsReadMutation.mutate(n.id)}
+                            disabled={
+                              markOneAsReadMutation.isPending &&
+                              markOneAsReadMutation.variables === n.id
+                            }
                           >
                             <BellOff className="h-4 w-4" />
                           </Button>

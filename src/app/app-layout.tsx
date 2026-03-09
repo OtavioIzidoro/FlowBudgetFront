@@ -1,4 +1,7 @@
+import { useEffect, useState } from 'react';
 import { Outlet, Link, useLocation, useNavigate } from '@tanstack/react-router';
+import { format } from 'date-fns';
+import { ptBR } from 'date-fns/locale';
 import {
   LayoutDashboard,
   ArrowLeftRight,
@@ -17,7 +20,7 @@ import {
 } from 'lucide-react';
 import { cn } from '@/shared/lib/utils';
 import { useAuthStore } from '@/shared/store/auth-store';
-import { isSuperAdmin } from '@/shared/lib/auth';
+import { isAdmin, isSuperAdmin } from '@/shared/lib/auth';
 import { logout as apiLogout } from '@/shared/services/auth.service';
 import { useTourStore } from '@/shared/store/tour-store';
 import { Tour } from '@/shared/components/tour/tour';
@@ -46,7 +49,9 @@ export function AppLayout() {
   const navigate = useNavigate();
   const storeLogout = useAuthStore((s) => s.logout);
   const user = useAuthStore((s) => s.user);
-  const showAdmin = isSuperAdmin(user);
+  const [now, setNow] = useState(() => new Date());
+  const showAdmin = isAdmin(user);
+  const showCreateUser = isSuperAdmin(user);
   const {
     canCheckForUpdates,
     checkForUpdates,
@@ -56,6 +61,21 @@ export function AppLayout() {
 
   useInactivitySession();
   useDesktopNotifications();
+
+  useEffect(() => {
+    const intervalId = window.setInterval(() => {
+      setNow(new Date());
+    }, 1000);
+
+    return () => {
+      window.clearInterval(intervalId);
+    };
+  }, []);
+
+  const formattedNow = format(now, "EEEE, dd/MM/yyyy 'às' HH:mm:ss", {
+    locale: ptBR,
+  });
+  const displayNow = formattedNow.charAt(0).toUpperCase() + formattedNow.slice(1);
 
   const handleLogout = async () => {
     await apiLogout();
@@ -115,18 +135,20 @@ export function AppLayout() {
               <Users className="h-4 w-4" />
               Usuários
             </Link>
-            <Link
-              to={'/admin/users/create' as '/'}
-              className={cn(
-                'flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium transition-colors',
-                location.pathname === '/admin/users/create'
-                  ? 'bg-primary text-primary-foreground'
-                  : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground'
-              )}
-            >
-              <UserPlus className="h-4 w-4" />
-              Criar usuário
-            </Link>
+            {showCreateUser && (
+              <Link
+                to={'/admin/users/create' as '/'}
+                className={cn(
+                  'flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium transition-colors',
+                  location.pathname === '/admin/users/create'
+                    ? 'bg-primary text-primary-foreground'
+                    : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground'
+                )}
+              >
+                <UserPlus className="h-4 w-4" />
+                Criar usuário
+              </Link>
+            )}
           </div>
         )}
         <div className="border-t p-2 space-y-1">
@@ -169,6 +191,9 @@ export function AppLayout() {
         </div>
       </aside>
       <main className="relative flex flex-1 flex-col" data-tour="main-content">
+        <div className="border-b bg-background/95 px-6 py-3 text-center text-sm font-medium text-foreground">
+          {displayNow}
+        </div>
         <div className="relative flex-1 overflow-auto">
           <Outlet />
           <button
