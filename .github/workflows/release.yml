@@ -62,9 +62,15 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Build and publish mac (signed)
-        if: matrix.platform == 'mac' && secrets.MAC_CSC_LINK != ''
-        run: npx electron-builder --mac --publish always
+      - name: Build and publish mac
+        if: matrix.platform == 'mac'
+        run: |
+          if [ -n "$CSC_LINK" ]; then
+            echo "Building signed mac release"
+          else
+            echo "Building unsigned mac release"
+          fi
+          npx electron-builder --mac --publish always
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           CSC_IDENTITY_AUTO_DISCOVERY: false
@@ -74,25 +80,17 @@ jobs:
           APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
 
-      - name: Build and publish mac (unsigned)
-        if: matrix.platform == 'mac' && secrets.MAC_CSC_LINK == ''
-        run: npx electron-builder --mac --publish always
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          CSC_IDENTITY_AUTO_DISCOVERY: false
-
-      - name: Build and publish win (signed)
-        if: matrix.platform == 'win' && secrets.WIN_CSC_LINK != ''
-        run: npx electron-builder --win --publish always
+      - name: Build and publish win
+        if: matrix.platform == 'win'
+        run: |
+          if [ -n "$CSC_LINK" ]; then
+            echo "Building signed windows release"
+          else
+            echo "Building unsigned windows release"
+          fi
+          npx electron-builder --win --publish always
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           CSC_IDENTITY_AUTO_DISCOVERY: false
           CSC_LINK: ${{ secrets.WIN_CSC_LINK }}
           CSC_KEY_PASSWORD: ${{ secrets.WIN_CSC_KEY_PASSWORD }}
-
-      - name: Build and publish win (unsigned)
-        if: matrix.platform == 'win' && secrets.WIN_CSC_LINK == ''
-        run: npx electron-builder --win --publish always
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          CSC_IDENTITY_AUTO_DISCOVERY: false
