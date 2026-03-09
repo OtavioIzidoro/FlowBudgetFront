@@ -1,7 +1,7 @@
 {
   "name": "flowbudget",
   "private": true,
-  "version": "0.1.18",
+  "version": "0.1.19",
   "author": "Izitec <support@flowbudget.app>",
   "repository": "https://github.com/OtavioIzidoro/FlowBudgetFront.git",
   "description": "FlowBudget — Smart Financial Control by Izitec",
@@ -89,7 +89,8 @@
     },
     "nsis": {
       "oneClick": false,
-      "allowToChangeInstallationDirectory": true
+      "allowToChangeInstallationDirectory": true,
+      "artifactName": "FlowBudget-Setup-${version}.${ext}"
     },
     "publish": {
       "provider": "github",

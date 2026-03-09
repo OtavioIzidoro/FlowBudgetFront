@@ -172,7 +172,7 @@ jobs:
           npx electron-builder --win --publish never
           shopt -s nullglob
           files=()
-          for pattern in "release/* Setup *.exe" "release/FlowBudget *.exe" "release/latest*.yml" "release/*.exe.blockmap"; do
+          for pattern in "release/FlowBudget-Setup-*.exe" "release/FlowBudget *.exe" "release/latest*.yml" "release/*.exe.blockmap"; do
             for file in $pattern; do
               if [ -f "$file" ]; then
                 files+=("$file")
