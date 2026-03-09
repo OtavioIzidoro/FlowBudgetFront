@@ -182,6 +182,50 @@ Excluir transação. **Response 200:** `{ "data": { "success": true } }`
 
 ---
 
+## Recurring Templates (Autenticado)
+
+Modelos de transações recorrentes (ex: salário, aluguel). Todo mês o usuário confirma se recebeu/pagou; ao confirmar, cria-se uma transação.
+
+### GET /recurring-templates
+Listar recorrências do usuário.
+
+**Response 200:**
+```json
+{
+  "data": [
+    {
+      "id": "uuid",
+      "type": "income|expense",
+      "value": 500000,
+      "categoryId": "uuid",
+      "description": "string|null",
+      "dayOfMonth": 5
+    }
+  ]
+}
+```
+- `value`: centavos
+- `dayOfMonth`: 1-31
+
+### POST /recurring-templates
+Criar recorrência.
+
+**Request:**
+```json
+{
+  "type": "income|expense",
+  "value": 500000,
+  "categoryId": "uuid",
+  "description": "string",
+  "dayOfMonth": 5
+}
+```
+
+### DELETE /recurring-templates/:id
+Excluir recorrência. **Response 200:** `{ "data": { "success": true } }`
+
+---
+
 ## Categories (Autenticado)
 
 ### GET /categories
