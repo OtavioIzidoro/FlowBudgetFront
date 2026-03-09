@@ -1,4 +1,6 @@
 const { app, BrowserWindow, ipcMain } = require('electron');
+const fs = require('fs');
+const http = require('http');
 const path = require('path');
 const { autoUpdater } = require('electron-updater');
 
@@ -7,9 +9,87 @@ const isDev =
   (process.env.NODE_ENV !== 'production' || process.env.ELECTRON_DEV);
 
 let mainWindow = null;
+let localServer = null;
+let localServerUrl = null;
 
-function createWindow() {
-  const iconPath = path.join(__dirname, '../public/assets/logo.png');
+const MIME_TYPES = {
+  '.css': 'text/css; charset=utf-8',
+  '.gif': 'image/gif',
+  '.html': 'text/html; charset=utf-8',
+  '.ico': 'image/x-icon',
+  '.jpg': 'image/jpeg',
+  '.js': 'text/javascript; charset=utf-8',
+  '.json': 'application/json; charset=utf-8',
+  '.png': 'image/png',
+  '.svg': 'image/svg+xml',
+  '.webp': 'image/webp',
+};
+
+function resolveDistFilePath(requestUrl) {
+  const distDir = path.join(__dirname, '../dist');
+  const indexPath = path.join(distDir, 'index.html');
+  const parsedUrl = new URL(requestUrl, 'http://127.0.0.1');
+  const normalizedPath = decodeURIComponent(parsedUrl.pathname === '/' ? '/index.html' : parsedUrl.pathname);
+  const relativePath = normalizedPath.replace(/^\/+/, '');
+  const candidatePath = path.normalize(path.join(distDir, relativePath));
+
+  if (!candidatePath.startsWith(distDir)) {
+    return indexPath;
+  }
+
+  if (fs.existsSync(candidatePath) && fs.statSync(candidatePath).isFile()) {
+    return candidatePath;
+  }
+
+  return indexPath;
+}
+
+function startLocalServer() {
+  if (isDev) {
+    return Promise.resolve('http://localhost:5173');
+  }
+
+  if (localServerUrl) {
+    return Promise.resolve(localServerUrl);
+  }
+
+  const indexPath = path.join(__dirname, '../dist/index.html');
+  if (!fs.existsSync(indexPath)) {
+    throw new Error('Build do frontend não encontrado em dist/index.html.');
+  }
+
+  return new Promise((resolve, reject) => {
+    localServer = http.createServer((req, res) => {
+      try {
+        const filePath = resolveDistFilePath(req.url || '/');
+        const extension = path.extname(filePath).toLowerCase();
+        const contentType = MIME_TYPES[extension] || 'application/octet-stream';
+        const content = fs.readFileSync(filePath);
+        res.writeHead(200, { 'Content-Type': contentType });
+        res.end(content);
+      } catch (error) {
+        res.writeHead(500, { 'Content-Type': 'text/plain; charset=utf-8' });
+        res.end('Internal Server Error');
+      }
+    });
+
+    localServer.once('error', reject);
+    localServer.listen(0, '127.0.0.1', () => {
+      const address = localServer.address();
+      if (!address || typeof address === 'string') {
+        reject(new Error('Não foi possível iniciar o servidor local do aplicativo.'));
+        return;
+      }
+      localServerUrl = `http://127.0.0.1:${address.port}`;
+      resolve(localServerUrl);
+    });
+  });
+}
+
+async function createWindow() {
+  const iconPath = isDev
+    ? path.join(__dirname, '../public/assets/logo.png')
+    : path.join(__dirname, '../dist/assets/logo.png');
   mainWindow = new BrowserWindow({
     width: 1280,
     height: 800,
@@ -22,11 +102,8 @@ function createWindow() {
     title: 'FlowBudget  Smart Financial Control',
   });
 
-  if (isDev) {
-    mainWindow.loadURL('http://localhost:5173');
-  } else {
-    mainWindow.loadFile(path.join(__dirname, '../dist/index.html'));
-  }
+  const appUrl = await startLocalServer();
+  await mainWindow.loadURL(appUrl);
 
   mainWindow.on('closed', () => {
     mainWindow = null;
@@ -64,8 +141,8 @@ function setupAutoUpdater() {
   setInterval(() => autoUpdater.checkForUpdates(), 1000 * 60 * 60 * 4);
 }
 
-app.whenReady().then(() => {
-  createWindow();
+app.whenReady().then(async () => {
+  await createWindow();
   setupAutoUpdater();
 });
 
@@ -78,5 +155,13 @@ app.on('window-all-closed', () => {
 app.on('activate', () => {
   if (BrowserWindow.getAllWindows().length === 0) {
     createWindow();
+  }
+});
+
+app.on('before-quit', () => {
+  if (localServer) {
+    localServer.close();
+    localServer = null;
+    localServerUrl = null;
   }
 });
