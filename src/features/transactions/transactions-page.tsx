@@ -301,10 +301,10 @@ export function TransactionsPage() {
   })();
 
   return (
-    <div className="space-y-6 p-6">
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold">Transações</h1>
-        <Button onClick={() => setCreating(true)}>
+    <div className="space-y-4 p-4 sm:space-y-6 sm:p-6">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <h1 className="text-xl font-bold sm:text-2xl">Transações</h1>
+        <Button onClick={() => setCreating(true)} className="w-full sm:w-auto">
           <Plus className="mr-2 h-4 w-4" />
           Nova transação
         </Button>
@@ -314,8 +314,8 @@ export function TransactionsPage() {
         <CardHeader>
           <CardTitle>Filtros</CardTitle>
         </CardHeader>
-        <CardContent className="flex flex-wrap gap-4">
-          <div className="relative flex-1 min-w-[200px]">
+        <CardContent className="flex flex-col gap-4 sm:flex-row sm:flex-wrap">
+          <div className="relative min-w-0 flex-1 sm:min-w-[200px]">
             <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
             <Input
               placeholder="Buscar..."
@@ -328,7 +328,7 @@ export function TransactionsPage() {
             value={typeFilter}
             onValueChange={(v) => setTypeFilter(v as TransactionType | 'all')}
           >
-            <SelectTrigger className="w-[180px]">
+            <SelectTrigger className="w-full sm:w-[180px]">
               <SelectValue placeholder="Tipo" />
             </SelectTrigger>
             <SelectContent>
@@ -338,7 +338,7 @@ export function TransactionsPage() {
             </SelectContent>
           </Select>
           <Select value={categoryFilter} onValueChange={setCategoryFilter}>
-            <SelectTrigger className="w-[180px]">
+            <SelectTrigger className="w-full sm:w-[180px]">
               <SelectValue placeholder="Categoria" />
             </SelectTrigger>
             <SelectContent>
@@ -350,7 +350,7 @@ export function TransactionsPage() {
               ))}
             </SelectContent>
           </Select>
-          <div className="flex items-center gap-2">
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-2">
             <label htmlFor="month-filter" className="text-sm text-muted-foreground whitespace-nowrap">
               Mês:
             </label>
@@ -358,7 +358,7 @@ export function TransactionsPage() {
               value={monthFilter || 'all'}
               onValueChange={(v) => setMonthFilter(v === 'all' ? '' : v)}
             >
-              <SelectTrigger id="month-filter" className="w-[180px]">
+              <SelectTrigger id="month-filter" className="w-full sm:w-[180px]">
                 <SelectValue placeholder="Mês" />
               </SelectTrigger>
               <SelectContent>
@@ -389,7 +389,7 @@ export function TransactionsPage() {
                 })}
               </SelectContent>
             </Select>
-            <div className="flex items-center gap-1 border rounded-md">
+            <div className="flex items-center justify-center gap-1 rounded-md border sm:justify-start">
               <Button
                 type="button"
                 variant="ghost"
@@ -405,7 +405,7 @@ export function TransactionsPage() {
               >
                 <ChevronLeft className="h-4 w-4" />
               </Button>
-              <span className="min-w-[120px] text-center text-sm font-medium">
+              <span className="min-w-[100px] flex-1 text-center text-sm font-medium sm:min-w-[120px] sm:flex-none">
                 {monthFilter === 'upcoming-pending-expenses'
                   ? 'A pagar'
                   : monthFilter
@@ -446,9 +446,9 @@ export function TransactionsPage() {
 
       {recurringTemplates && recurringTemplates.length > 0 && (
         <Card>
-          <CardHeader className="flex flex-row items-center justify-between">
+          <CardHeader className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
             <CardTitle>Recorrências</CardTitle>
-            <Button variant="outline" size="sm" onClick={() => setCreatingRecurring(true)}>
+            <Button variant="outline" size="sm" onClick={() => setCreatingRecurring(true)} className="w-full sm:w-auto">
               <Repeat className="mr-2 h-4 w-4" />
               Nova
             </Button>
@@ -536,9 +536,9 @@ export function TransactionsPage() {
 
       {(!recurringTemplates || recurringTemplates.length === 0) && (
         <Card>
-          <CardHeader className="flex flex-row items-center justify-between">
+          <CardHeader className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
             <CardTitle>Recorrências</CardTitle>
-            <Button variant="outline" size="sm" onClick={() => setCreatingRecurring(true)}>
+            <Button variant="outline" size="sm" onClick={() => setCreatingRecurring(true)} className="w-full sm:w-auto">
               <Repeat className="mr-2 h-4 w-4" />
               Adicionar recorrência
             </Button>

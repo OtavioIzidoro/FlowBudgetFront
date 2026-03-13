@@ -17,6 +17,8 @@ import {
   Plus,
   Download,
   RefreshCw,
+  Menu,
+  X,
 } from 'lucide-react';
 import { cn } from '@/shared/lib/utils';
 import { useAuthStore } from '@/shared/store/auth-store';
@@ -32,6 +34,7 @@ import { useAppUpdates } from '@/shared/hooks/use-app-updates';
 import { SidebarBalance } from '@/app/sidebar-balance';
 import { useNewTransactionModalStore } from '@/shared/store/new-transaction-modal-store';
 import { AppFooter } from '@/shared/components/app-footer';
+import { PwaInstallBanner } from '@/shared/components/pwa-install-banner';
 
 const navItems = [
   { to: '/dashboard', label: 'Dashboard', icon: LayoutDashboard, tourId: 'nav-dashboard' },
@@ -50,8 +53,13 @@ export function AppLayout() {
   const storeLogout = useAuthStore((s) => s.logout);
   const user = useAuthStore((s) => s.user);
   const [now, setNow] = useState(() => new Date());
+  const [sidebarOpen, setSidebarOpen] = useState(false);
   const showAdmin = isAdmin(user);
   const showCreateUser = isSuperAdmin(user);
+
+  useEffect(() => {
+    setSidebarOpen(false);
+  }, [location.pathname]);
   const {
     canCheckForUpdates,
     checkForUpdates,
@@ -84,19 +92,44 @@ export function AppLayout() {
 
   return (
     <div className="flex h-screen bg-background">
+      {/* Overlay para fechar o drawer no mobile */}
+      {sidebarOpen && (
+        <button
+          type="button"
+          aria-label="Fechar menu"
+          className="fixed inset-0 z-40 bg-black/50 md:hidden"
+          onClick={() => setSidebarOpen(false)}
+        />
+      )}
+
       <aside
-        className="flex w-56 flex-col border-r bg-card"
+        className={cn(
+          'flex w-56 flex-col border-r bg-card transition-transform duration-200 ease-out',
+          'fixed inset-y-0 left-0 z-50 md:relative md:translate-x-0 md:shadow-none',
+          sidebarOpen ? 'translate-x-0 shadow-xl' : '-translate-x-full'
+        )}
         data-tour="sidebar"
       >
-        <div className="flex h-14 items-center gap-2 border-b px-4">
-          <img
-            src="/assets/logo.png"
-            alt="FlowBudget"
-            className="h-8 w-8 shrink-0 object-contain"
-          />
-          <span className="font-semibold text-foreground truncate">{APP_TITLE}</span>
+        <div className="flex h-14 items-center justify-between gap-2 border-b px-4">
+          <div className="flex min-w-0 flex-1 items-center gap-2">
+            <img
+              src="/assets/logo.png"
+              alt="FlowBudget"
+              className="h-8 w-8 shrink-0 object-contain"
+            />
+            <span className="font-semibold text-foreground truncate">{APP_TITLE}</span>
+          </div>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-8 w-8 shrink-0 md:hidden"
+            onClick={() => setSidebarOpen(false)}
+            aria-label="Fechar menu"
+          >
+            <X className="h-5 w-5" />
+          </Button>
         </div>
-        <nav className="flex-1 space-y-1 p-2">
+        <nav className="flex-1 space-y-1 overflow-y-auto p-2">
           {navItems.map((item) => {
             const isActive = location.pathname === item.to;
             return (
@@ -190,8 +223,27 @@ export function AppLayout() {
           </Button>
         </div>
       </aside>
-      <main className="relative flex flex-1 flex-col" data-tour="main-content">
-        <div className="border-b bg-background/95 px-6 py-3 text-center text-sm font-medium text-foreground">
+
+      <main className="relative flex min-w-0 flex-1 flex-col" data-tour="main-content">
+        {/* Barra superior no mobile: menu + data */}
+        <div className="flex h-14 shrink-0 items-center gap-2 border-b bg-background/95 px-3 md:hidden">
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-9 w-9 shrink-0"
+            onClick={() => setSidebarOpen(true)}
+            aria-label="Abrir menu"
+          >
+            <Menu className="h-5 w-5" />
+          </Button>
+          <p className="min-w-0 flex-1 truncate text-center text-sm font-medium text-foreground">
+            {displayNow}
+          </p>
+          <div className="w-9 shrink-0" aria-hidden />
+        </div>
+
+        <PwaInstallBanner />
+        <div className="hidden border-b bg-background/95 px-6 py-3 text-center text-sm font-medium text-foreground md:block">
           {displayNow}
         </div>
         <div className="relative flex-1 overflow-auto">

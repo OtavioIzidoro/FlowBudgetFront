@@ -66,17 +66,17 @@ export function BillsPage() {
   const paidTotal = sortedBills.filter((t) => t.status === 'completed').reduce((acc, t) => acc + t.value, 0);
 
   return (
-    <div className="space-y-6 p-6">
-      <div className="flex items-center gap-2">
-        <CalendarCheck className="h-8 w-8 text-primary" />
-        <h1 className="text-2xl font-bold">Contas a pagar este mês</h1>
+    <div className="space-y-4 p-4 sm:space-y-6 sm:p-6">
+      <div className="flex flex-wrap items-center gap-2">
+        <CalendarCheck className="h-6 w-6 shrink-0 text-primary sm:h-8 sm:w-8" />
+        <h1 className="text-xl font-bold sm:text-2xl">Contas a pagar este mês</h1>
       </div>
 
       <Card>
         <CardHeader>
           <CardTitle>Resumo</CardTitle>
         </CardHeader>
-        <CardContent className="flex flex-wrap gap-6">
+        <CardContent className="flex flex-wrap gap-4 sm:gap-6">
           <div>
             <p className="text-sm text-muted-foreground">Total do mês</p>
             <p className="text-xl font-semibold text-destructive">{formatCurrency(total)}</p>
@@ -108,7 +108,7 @@ export function BillsPage() {
               {sortedBills.map((t) => (
                 <li
                   key={t.id}
-                  className="flex items-center justify-between gap-4 rounded-lg border p-3"
+                  className="flex flex-col gap-2 rounded-lg border p-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4"
                 >
                   <div className="min-w-0 flex-1">
                     <p className="font-medium">{categoryMap.get(t.categoryId)?.name ?? t.categoryId}</p>
@@ -117,7 +117,7 @@ export function BillsPage() {
                       {t.description ? ` · ${t.description}` : ''}
                     </p>
                   </div>
-                  <div className="flex items-center gap-3 shrink-0">
+                  <div className="flex flex-wrap items-center gap-2 shrink-0 sm:gap-3">
                     <span className="font-semibold text-destructive">
                       {formatCurrency(t.value)}
                     </span>

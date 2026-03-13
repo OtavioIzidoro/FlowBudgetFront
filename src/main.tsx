@@ -7,6 +7,7 @@ import { router } from '@/app/router';
 import { AuthSessionBootstrap } from '@/app/auth-session-bootstrap';
 import { ThemeProvider } from '@/app/theme-provider';
 import { Toaster } from '@/shared/ui/toaster';
+import { PwaSplashScreen } from '@/shared/components/pwa-splash-screen';
 import '@/index.css';
 
 if (typeof window !== 'undefined' && 'serviceWorker' in navigator) {
@@ -26,9 +27,11 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <QueryClientProvider client={queryClient}>
       <ThemeProvider>
-        <AuthSessionBootstrap />
-        <RouterProvider router={router} />
-        <Toaster />
+        <PwaSplashScreen>
+          <AuthSessionBootstrap />
+          <RouterProvider router={router} />
+          <Toaster />
+        </PwaSplashScreen>
       </ThemeProvider>
     </QueryClientProvider>
   </StrictMode>

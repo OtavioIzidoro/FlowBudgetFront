@@ -70,10 +70,10 @@ export function CreateUserPage() {
   }
 
   return (
-    <div className="space-y-6 p-6">
-      <h1 className="text-2xl font-bold">Criar usuário</h1>
+    <div className="space-y-4 p-4 sm:space-y-6 sm:p-6">
+      <h1 className="text-xl font-bold sm:text-2xl">Criar usuário</h1>
 
-      <Card className="max-w-md">
+      <Card className="w-full max-w-md">
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <UserPlus className="h-5 w-5" />

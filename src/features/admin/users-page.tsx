@@ -169,17 +169,17 @@ export function UsersPage() {
   }
 
   return (
-    <div className="space-y-6 p-6">
+    <div className="space-y-4 p-4 sm:space-y-6 sm:p-6">
       <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
         <div>
-          <h1 className="text-2xl font-bold">Usuários</h1>
+          <h1 className="text-xl font-bold sm:text-2xl">Usuários</h1>
           <p className="text-sm text-muted-foreground">
             Gerencie a base de usuários, acompanhe status e primeiros acessos.
           </p>
         </div>
 
         {canCreateUser && (
-          <Button asChild>
+          <Button asChild className="w-full lg:w-auto">
             <Link to={'/admin/users/create' as '/'}>
               <UserPlus className="mr-2 h-4 w-4" />
               Criar usuário
@@ -238,7 +238,7 @@ export function UsersPage() {
         <CardContent>
           <form
             onSubmit={handleSearchSubmit}
-            className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_200px_200px_auto]"
+            className="grid gap-4 sm:grid-cols-2 lg:grid-cols-[minmax(0,1fr)_200px_200px_auto]"
           >
             <div className="space-y-2">
               <label className="text-sm font-medium">Busca</label>

@@ -74,8 +74,8 @@ export function ProfilePage() {
   }, [user, reset]);
 
   return (
-    <div className="space-y-6 p-6">
-      <h1 className="text-2xl font-bold">Perfil</h1>
+    <div className="space-y-4 p-4 sm:space-y-6 sm:p-6">
+      <h1 className="text-xl font-bold sm:text-2xl">Perfil</h1>
 
       <Card>
         <CardHeader>
@@ -134,7 +134,7 @@ export function ProfilePage() {
                 applyTheme(value);
               }}
             >
-              <SelectTrigger className="w-[180px]">
+              <SelectTrigger className="w-full sm:w-[180px]">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -155,7 +155,7 @@ export function ProfilePage() {
             </Label>
           </div>
           {canCheckForUpdates && (
-            <div className="flex items-center justify-between gap-4 rounded-lg border p-4">
+            <div className="flex flex-col gap-3 rounded-lg border p-4 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
               <div className="space-y-1">
                 <p className="text-sm font-medium text-foreground">Atualizações do aplicativo</p>
                 <p className="text-sm text-muted-foreground">

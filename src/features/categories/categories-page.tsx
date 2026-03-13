@@ -55,10 +55,10 @@ export function CategoriesPage() {
     : undefined;
 
   return (
-    <div className="space-y-6 p-6">
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold">Categorias</h1>
-        <Button onClick={() => setCreating(true)}>
+    <div className="space-y-4 p-4 sm:space-y-6 sm:p-6">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <h1 className="text-xl font-bold sm:text-2xl">Categorias</h1>
+        <Button onClick={() => setCreating(true)} className="w-full sm:w-auto">
           <Plus className="mr-2 h-4 w-4" />
           Nova categoria
         </Button>

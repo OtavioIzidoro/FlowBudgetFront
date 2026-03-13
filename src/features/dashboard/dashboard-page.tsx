@@ -221,8 +221,8 @@ export function DashboardPage() {
     : [];
 
   return (
-    <div className="space-y-6 p-6">
-      <h1 className="text-2xl font-bold">Dashboard</h1>
+    <div className="space-y-4 p-4 sm:space-y-6 sm:p-6">
+      <h1 className="text-xl font-bold sm:text-2xl">Dashboard</h1>
 
       {summaryLoading && (
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
@@ -381,8 +381,8 @@ export function DashboardPage() {
           <CardContent>
             {financialScore ? (
               <div className="grid gap-4 md:grid-cols-[180px_1fr]">
-                <div className="flex items-center justify-center">
-                  <ResponsiveContainer width="100%" height={180}>
+                <div className="flex h-[160px] items-center justify-center sm:h-[180px]">
+                  <ResponsiveContainer width="100%" height="100%">
                     <RadialBarChart
                       data={performanceGaugeData}
                       innerRadius="68%"
@@ -427,7 +427,7 @@ export function DashboardPage() {
                     </RadialBarChart>
                   </ResponsiveContainer>
                 </div>
-                <div className="space-y-3">
+                <div className="min-w-0 space-y-3">
                   <p className="text-sm text-muted-foreground">{financialScore.summary}</p>
                   {financialScore.highlights.length > 0 && (
                     <ul className="space-y-2 text-sm text-muted-foreground">
@@ -502,7 +502,8 @@ export function DashboardPage() {
               <Skeleton className="h-[280px] w-full" />
             )}
             {!evolutionLoading && evolutionData && evolutionData.length > 0 && (
-                <ResponsiveContainer width="100%" height={280}>
+                <div className="h-[240px] w-full sm:h-[280px]">
+                  <ResponsiveContainer width="100%" height="100%">
                   <LineChart data={evolutionData}>
                     <defs>
                       <linearGradient id="balanceGlow" x1="0" y1="0" x2="1" y2="0">
@@ -560,7 +561,8 @@ export function DashboardPage() {
                       animationDuration={1600}
                     />
                   </LineChart>
-                </ResponsiveContainer>
+                  </ResponsiveContainer>
+                </div>
               )}
           </CardContent>
         </Card>
@@ -571,10 +573,11 @@ export function DashboardPage() {
           </CardHeader>
           <CardContent>
             {evolutionLoading && (
-              <Skeleton className="h-[280px] w-full" />
+              <Skeleton className="h-[240px] w-full sm:h-[280px]" />
             )}
             {!evolutionLoading && evolutionData && evolutionData.length > 0 && (
-              <ResponsiveContainer width="100%" height={280}>
+              <div className="h-[240px] w-full sm:h-[280px]">
+              <ResponsiveContainer width="100%" height="100%">
                 <BarChart data={evolutionData}>
                   <defs>
                     <linearGradient id="incomeBarGradient" x1="0" y1="0" x2="0" y2="1">
@@ -620,6 +623,7 @@ export function DashboardPage() {
                   />
                 </BarChart>
               </ResponsiveContainer>
+              </div>
             )}
           </CardContent>
         </Card>
@@ -779,7 +783,8 @@ export function DashboardPage() {
           </CardHeader>
           <CardContent>
             {savingsData && savingsData.length > 0 && (
-              <ResponsiveContainer width="100%" height={280}>
+              <div className="h-[240px] w-full sm:h-[280px]">
+              <ResponsiveContainer width="100%" height="100%">
                 <AreaChart data={savingsData}>
                   <defs>
                     <linearGradient id="savingsAreaGradient" x1="0" y1="0" x2="0" y2="1">
@@ -817,6 +822,7 @@ export function DashboardPage() {
                   />
                 </AreaChart>
               </ResponsiveContainer>
+              </div>
             )}
           </CardContent>
         </Card>
@@ -827,7 +833,8 @@ export function DashboardPage() {
           </CardHeader>
           <CardContent>
             {categorySpend && categorySpend.length > 0 && (
-                <ResponsiveContainer width="100%" height={280}>
+                <div className="h-[240px] w-full sm:h-[280px]">
+                <ResponsiveContainer width="100%" height="100%">
                   <PieChart>
                     <Pie
                       data={categorySpend}
@@ -851,6 +858,7 @@ export function DashboardPage() {
                     <Legend />
                   </PieChart>
                 </ResponsiveContainer>
+                </div>
               )}
           </CardContent>
         </Card>
@@ -863,7 +871,8 @@ export function DashboardPage() {
           </CardHeader>
           <CardContent>
             {categorySpend && categorySpend.length > 0 && (
-              <ResponsiveContainer width="100%" height={280}>
+              <div className="h-[240px] w-full sm:h-[280px]">
+              <ResponsiveContainer width="100%" height="100%">
                 <BarChart
                   data={categorySpend}
                   layout="vertical"
@@ -883,6 +892,7 @@ export function DashboardPage() {
                     />
                 </BarChart>
               </ResponsiveContainer>
+              </div>
             )}
           </CardContent>
         </Card>
@@ -893,7 +903,8 @@ export function DashboardPage() {
           </CardHeader>
           <CardContent>
             {goalsChartData.length > 0 ? (
-              <ResponsiveContainer width="100%" height={280}>
+              <div className="h-[240px] w-full sm:h-[280px]">
+              <ResponsiveContainer width="100%" height="100%">
                 <BarChart data={goalsChartData} layout="vertical" margin={{ left: 20, right: 20 }}>
                   <CartesianGrid strokeDasharray="3 3" />
                   <XAxis type="number" domain={[0, 100]} tickFormatter={(v) => `${v}%`} />
@@ -912,6 +923,7 @@ export function DashboardPage() {
                   />
                 </BarChart>
               </ResponsiveContainer>
+              </div>
             ) : (
               <p className="py-8 text-sm text-muted-foreground">Nenhuma meta para exibir.</p>
             )}
@@ -996,7 +1008,8 @@ export function DashboardPage() {
             </CardHeader>
             <CardContent>
               {goalsChartData.length > 0 ? (
-                <ResponsiveContainer width="100%" height={180}>
+                <div className="h-[160px] w-full sm:h-[180px]">
+                <ResponsiveContainer width="100%" height="100%">
                   <BarChart data={goalsChartData} layout="vertical" margin={{ left: 10, right: 10 }}>
                     <XAxis type="number" domain={[0, 100]} tickFormatter={(v) => `${v}%`} hide />
                     <YAxis type="category" dataKey="name" width={80} tick={{ fontSize: 10 }} />
@@ -1010,6 +1023,7 @@ export function DashboardPage() {
                     />
                   </BarChart>
                 </ResponsiveContainer>
+                </div>
               ) : (
                 <p className="text-sm text-muted-foreground">Nenhuma meta ativa.</p>
               )}
