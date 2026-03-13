@@ -19,6 +19,7 @@ import {
   CartesianGrid,
   Tooltip,
   ResponsiveContainer,
+  ReferenceLine,
   PieChart,
   Pie,
   Cell,
@@ -64,6 +65,19 @@ const CHART_COLORS = {
 
 const dashboardCardClassName =
   'border-primary/10 bg-gradient-to-br from-card via-card to-primary/5 shadow-sm backdrop-blur-sm';
+
+function getMonthKey(date: Date): string {
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, '0');
+  return `${y}-${m}`;
+}
+
+function formatMonthLabel(monthKey: string): string {
+  return new Date(monthKey + '-01').toLocaleDateString('pt-BR', {
+    month: 'short',
+    year: '2-digit',
+  });
+}
 
 export function DashboardPage() {
   const setNotifications = useNotificationStore((s) => s.setNotifications);
@@ -114,25 +128,31 @@ export function DashboardPage() {
     }
   }, [notifications, setNotifications]);
 
+  const currentMonthKey = getMonthKey(new Date());
+  const currentMonthLabel = formatMonthLabel(currentMonthKey);
+
   const evolutionData = Array.isArray(evolution)
-    ? evolution.map((e: { month: string }) => ({
-        ...e,
-        month: new Date(e.month + '-01').toLocaleDateString('pt-BR', {
-          month: 'short',
-          year: '2-digit',
-        }),
-      }))
+    ? [...evolution]
+        .sort((a, b) => a.month.localeCompare(b.month))
+        .map((e: { month: string }) => ({
+          ...e,
+          month: formatMonthLabel(e.month),
+          isCurrentMonth: e.month === currentMonthKey,
+        }))
     : undefined;
 
   const savingsData = Array.isArray(savingsEvolution)
-    ? savingsEvolution.map((e: { month: string }) => ({
-        ...e,
-        monthLabel: new Date(e.month + '-01').toLocaleDateString('pt-BR', {
-          month: 'short',
-          year: '2-digit',
-        }),
-      }))
+    ? [...savingsEvolution]
+        .sort((a, b) => a.month.localeCompare(b.month))
+        .map((e: { month: string }) => ({
+          ...e,
+          monthLabel: formatMonthLabel(e.month),
+          isCurrentMonth: e.month === currentMonthKey,
+        }))
     : undefined;
+
+  const showCurrentMonthLineEvolution = evolutionData?.some((d) => d.month === currentMonthLabel);
+  const showCurrentMonthLineSavings = savingsData?.some((d) => d.monthLabel === currentMonthLabel);
 
   const goalsChartData =
     goals?.filter((g) => g.status === 'active' || g.status === 'achieved').map((g) => ({
@@ -493,6 +513,15 @@ export function DashboardPage() {
                     <CartesianGrid strokeDasharray="3 3" />
                     <XAxis dataKey="month" />
                     <YAxis tickFormatter={(v) => `${v / 1000}k`} />
+                    {showCurrentMonthLineEvolution && (
+                      <ReferenceLine
+                        x={currentMonthLabel}
+                        stroke="hsl(var(--primary))"
+                        strokeWidth={2}
+                        strokeDasharray="4 4"
+                        label={{ value: 'Mês atual', position: 'top', fill: 'hsl(var(--primary))' }}
+                      />
+                    )}
                     <Tooltip
                       formatter={(value: number) => formatCurrency(value)}
                       labelFormatter={(label) => label}
@@ -560,6 +589,15 @@ export function DashboardPage() {
                   <CartesianGrid strokeDasharray="3 3" />
                   <XAxis dataKey="month" />
                   <YAxis tickFormatter={(v) => `${v / 1000}k`} />
+                  {showCurrentMonthLineEvolution && (
+                    <ReferenceLine
+                      x={currentMonthLabel}
+                      stroke="hsl(var(--primary))"
+                      strokeWidth={2}
+                      strokeDasharray="4 4"
+                      label={{ value: 'Mês atual', position: 'top', fill: 'hsl(var(--primary))' }}
+                    />
+                  )}
                   <Tooltip formatter={(value: number) => formatCurrency(value)} />
                   <Legend
                     formatter={(value) => <span className="text-foreground">{value}</span>}
@@ -752,6 +790,15 @@ export function DashboardPage() {
                   <CartesianGrid strokeDasharray="3 3" />
                   <XAxis dataKey="monthLabel" />
                   <YAxis tickFormatter={(v) => `${v}%`} />
+                  {showCurrentMonthLineSavings && (
+                    <ReferenceLine
+                      x={currentMonthLabel}
+                      stroke="hsl(var(--primary))"
+                      strokeWidth={2}
+                      strokeDasharray="4 4"
+                      label={{ value: 'Mês atual', position: 'top', fill: 'hsl(var(--primary))' }}
+                    />
+                  )}
                   <Tooltip
                     formatter={(value: number, name: string) =>
                       name === 'savingsPercent' ? [`${value}%`, 'Economia %'] : [formatCurrency(value), 'Valor']
