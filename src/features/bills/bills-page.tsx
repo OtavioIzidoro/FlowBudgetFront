@@ -1,5 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { getTransactions, updateTransaction } from '@/shared/services/transactions.service';
 import { getCategories } from '@/shared/services/categories.service';
 import { getRecurringTemplates } from '@/shared/services/recurring.service';
@@ -17,6 +17,7 @@ import { cn } from '@/shared/lib/utils';
 import type { Transaction } from '@/entities/transaction/types';
 import type { RecurringTemplate } from '@/entities/recurring-template/types';
 import { Skeleton } from '@/shared/ui/skeleton';
+import { parseLocalDateYmd, startOfMonthFromYearMonthKey } from '@/shared/lib/date';
 
 /** Mês atual + quantidade de meses à frente na visão consolidada */
 const MONTH_WINDOW = 7;
@@ -68,7 +69,7 @@ function computeMonthSummaries(
 
     return {
       monthKey,
-      label: format(new Date(`${monthKey}-01`), "MMMM 'de' yyyy", { locale: ptBR }),
+      label: format(startOfMonthFromYearMonthKey(monthKey), "MMMM 'de' yyyy", { locale: ptBR }),
       total,
       paidTotal,
       toPay: total - paidTotal,
@@ -79,9 +80,13 @@ function computeMonthSummaries(
 
 export function BillsPage() {
   const queryClient = useQueryClient();
-  const monthKeys = useMemo(() => buildMonthKeys(), []);
   const todayMonthKey = monthKeyFromDate(new Date());
-  const [selectedMonthKey, setSelectedMonthKey] = useState(() => todayMonthKey);
+  const monthKeys = useMemo(() => buildMonthKeys(), [todayMonthKey]);
+  const [selectedMonthKey, setSelectedMonthKey] = useState(() => monthKeyFromDate(new Date()));
+
+  useEffect(() => {
+    setSelectedMonthKey((prev) => (monthKeys.includes(prev) ? prev : todayMonthKey));
+  }, [monthKeys, todayMonthKey]);
 
   const { data: transactions, isPending: transactionsPending } = useQuery({
     queryKey: ['transactions', '', 'expense'],
@@ -135,7 +140,7 @@ export function BillsPage() {
     }) ?? [];
 
   const sortedBills = [...billsForSelectedMonth].sort(
-    (a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()
+    (a, b) => parseLocalDateYmd(a.date).getTime() - parseLocalDateYmd(b.date).getTime()
   );
 
   const categoryMap = new Map(categories?.map((c) => [c.id, c]) ?? []);
@@ -156,7 +161,7 @@ export function BillsPage() {
         <div>
           <h1 className="text-xl font-bold sm:text-2xl">Contas a pagar</h1>
           <p className="text-sm text-muted-foreground">
-            Mês atual e meses seguintes — totais por mês e detalhe por vencimento.
+            Despesas (à vista e parceladas) por mês de vencimento — totais e lista no mês selecionado.
           </p>
         </div>
       </div>
@@ -315,7 +320,12 @@ export function BillsPage() {
                   <div className="min-w-0 flex-1">
                     <p className="font-medium">{categoryMap.get(t.categoryId)?.name ?? t.categoryId}</p>
                     <p className="text-sm text-muted-foreground">
-                      Vencimento: {format(new Date(t.date), 'dd/MM/yyyy', { locale: ptBR })}
+                      Vencimento: {format(parseLocalDateYmd(t.date), 'dd/MM/yyyy', { locale: ptBR })}
+                      {t.installmentsTotal != null &&
+                      t.installmentsTotal > 1 &&
+                      t.installmentNumber != null
+                        ? ` · Parcela ${t.installmentNumber}/${t.installmentsTotal}`
+                        : ''}
                       {t.description ? ` · ${t.description}` : ''}
                     </p>
                   </div>

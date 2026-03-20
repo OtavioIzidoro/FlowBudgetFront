@@ -4,6 +4,7 @@ import { getRecurringTemplates } from '@/shared/services/recurring.service';
 import { getTransactions } from '@/shared/services/transactions.service';
 import type { Transaction } from '@/entities/transaction/types';
 import { appLogger } from '@/shared/logger';
+import { parseLocalDateYmd } from '@/shared/lib/date';
 
 export interface ProjectionPoint {
   date: string;
@@ -58,7 +59,7 @@ function getHistoricalAverages(transactions: Transaction[], now: Date): MonthlyA
       return;
     }
 
-    const date = new Date(transaction.date);
+    const date = parseLocalDateYmd(transaction.date);
     if (Number.isNaN(date.getTime()) || date >= currentMonthStart || date < firstRelevantMonth) {
       return;
     }
@@ -106,7 +107,7 @@ function getFutureAdjustments(transactions: Transaction[], now: Date): Map<strin
       return;
     }
 
-    const date = new Date(transaction.date);
+    const date = parseLocalDateYmd(transaction.date);
     if (Number.isNaN(date.getTime()) || date < currentMonthStart) {
       return;
     }

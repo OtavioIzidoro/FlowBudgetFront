@@ -30,6 +30,7 @@ import {
   TrendingUp,
 } from 'lucide-react';
 import { toServiceError } from '@/shared/lib/errors';
+import { startOfMonthFromYearMonthKey } from '@/shared/lib/date';
 
 const projectionCardClassName =
   'border-primary/10 bg-gradient-to-br from-card via-card to-primary/5 shadow-sm';
@@ -37,7 +38,7 @@ const projectionCardClassName =
 const scenarioColors = ['hsl(var(--primary))', '#22c55e', '#ef4444'];
 
 function formatMonthLabel(date: string): string {
-  return new Date(`${date}-01`).toLocaleDateString('pt-BR', {
+  return startOfMonthFromYearMonthKey(date).toLocaleDateString('pt-BR', {
     month: 'short',
     year: '2-digit',
   });
