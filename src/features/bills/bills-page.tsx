@@ -17,7 +17,22 @@ import { cn } from '@/shared/lib/utils';
 import type { Transaction } from '@/entities/transaction/types';
 import type { RecurringTemplate } from '@/entities/recurring-template/types';
 import { Skeleton } from '@/shared/ui/skeleton';
-import { parseLocalDateYmd, startOfMonthFromYearMonthKey } from '@/shared/lib/date';
+import {
+  getYearMonthKeyFromTransactionDate,
+  parseLocalDateYmd,
+  startOfMonthFromYearMonthKey,
+} from '@/shared/lib/date';
+
+function isExpenseTransaction(t: Transaction): boolean {
+  return String(t.type).toLowerCase() === 'expense';
+}
+
+/** Valor em centavos para totais (despesas às vezes vêm negativas na API). */
+function expenseAmountCents(t: Transaction): number {
+  const n = Number(t.value);
+  if (!Number.isFinite(n)) return 0;
+  return Math.abs(Math.trunc(n));
+}
 
 /** Mês atual + quantidade de meses à frente na visão consolidada */
 const MONTH_WINDOW = 7;
@@ -54,22 +69,24 @@ function computeMonthSummaries(
 ): MonthBillsSummary[] {
   return monthKeys.map((monthKey) => {
     const bills = transactions.filter((t) => {
-      const yyyyMm = t.date.slice(0, 7);
-      return yyyyMm === monthKey && t.status !== 'cancelled';
+      if (t.status === 'cancelled') return false;
+      const yyyyMm = getYearMonthKeyFromTransactionDate(t.date);
+      return yyyyMm === monthKey;
     });
-    const txTotal = bills.reduce((acc, t) => acc + t.value, 0);
+    const txTotal = bills.reduce((acc, t) => acc + expenseAmountCents(t), 0);
     const paidFromTx = bills
       .filter((t) => t.status === 'completed')
-      .reduce((acc, t) => acc + t.value, 0);
+      .reduce((acc, t) => acc + expenseAmountCents(t), 0);
 
     const isStrictFuture = monthKey > todayMonthKey;
     const useRecurringEstimate = isStrictFuture && txTotal === 0 && recurringExpenseTotal > 0;
     const total = useRecurringEstimate ? recurringExpenseTotal : txTotal;
     const paidTotal = useRecurringEstimate ? 0 : paidFromTx;
 
+    const labelRaw = format(startOfMonthFromYearMonthKey(monthKey), "MMMM 'de' yyyy", { locale: ptBR });
     return {
       monthKey,
-      label: format(startOfMonthFromYearMonthKey(monthKey), "MMMM 'de' yyyy", { locale: ptBR }),
+      label: labelRaw ? `${labelRaw.charAt(0).toUpperCase()}${labelRaw.slice(1)}` : monthKey,
       total,
       paidTotal,
       toPay: total - paidTotal,
@@ -90,7 +107,10 @@ export function BillsPage() {
 
   const { data: transactions, isPending: transactionsPending } = useQuery({
     queryKey: ['transactions', '', 'expense'],
-    queryFn: () => getTransactions({ type: 'expense', limit: 500 }),
+    queryFn: async () => {
+      const all = await getTransactions({ limit: 500 });
+      return all.filter((t) => isExpenseTransaction(t));
+    },
   });
 
   const { data: categories } = useQuery({
@@ -135,8 +155,9 @@ export function BillsPage() {
 
   const billsForSelectedMonth =
     transactions?.filter((t) => {
-      const yyyyMm = t.date.slice(0, 7);
-      return yyyyMm === selectedMonthKey && t.status !== 'cancelled';
+      if (t.status === 'cancelled') return false;
+      const yyyyMm = getYearMonthKeyFromTransactionDate(t.date);
+      return yyyyMm === selectedMonthKey;
     }) ?? [];
 
   const sortedBills = [...billsForSelectedMonth].sort(
@@ -144,10 +165,10 @@ export function BillsPage() {
   );
 
   const categoryMap = new Map(categories?.map((c) => [c.id, c]) ?? []);
-  const total = sortedBills.reduce((acc, t) => acc + t.value, 0);
+  const total = sortedBills.reduce((acc, t) => acc + expenseAmountCents(t), 0);
   const paidTotal = sortedBills
     .filter((t) => t.status === 'completed')
-    .reduce((acc, t) => acc + t.value, 0);
+    .reduce((acc, t) => acc + expenseAmountCents(t), 0);
 
   const selectedSummary = monthSummaries.find((m) => m.monthKey === selectedMonthKey);
   const listIsEstimate = selectedSummary?.isEstimate ?? false;
@@ -236,7 +257,7 @@ export function BillsPage() {
                                 isSelected && 'text-primary'
                               )}
                             >
-                              <span className="capitalize">{row.label}</span>
+                              <span className="normal-case">{row.label}</span>
                             </button>
                             {row.isEstimate && (
                               <span className="ml-2 text-xs font-normal text-muted-foreground">(estimativa)</span>
@@ -267,7 +288,7 @@ export function BillsPage() {
 
       <Card>
         <CardHeader>
-          <CardTitle className="capitalize">
+          <CardTitle className="normal-case">
             Resumo — {selectedSummary ? selectedSummary.label : selectedMonthKey}
           </CardTitle>
           {listIsEstimate && (
@@ -330,7 +351,9 @@ export function BillsPage() {
                     </p>
                   </div>
                   <div className="flex flex-wrap items-center gap-2 shrink-0 sm:gap-3">
-                    <span className="font-semibold text-destructive">{formatCurrency(t.value)}</span>
+                    <span className="font-semibold text-destructive">
+                      {formatCurrency(expenseAmountCents(t))}
+                    </span>
                     <div className="flex items-center gap-2">
                       <span className="text-sm text-muted-foreground">Pago</span>
                       <Switch

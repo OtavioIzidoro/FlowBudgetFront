@@ -24,3 +24,31 @@ export function startOfMonthFromYearMonthKey(monthKey: string): Date {
   }
   return new Date(y, m - 1, 1);
 }
+
+/**
+ * Chave yyyy-MM para agrupar contas pelo mês de vencimento.
+ * Aceita ISO (data ou datetime), yyyy-MM-dd e dd/MM/yyyy.
+ */
+export function getYearMonthKeyFromTransactionDate(raw: string | undefined | null): string | null {
+  if (raw == null || typeof raw !== 'string') return null;
+  const s = raw.trim();
+  if (!s) return null;
+
+  const isoHead = s.match(/^(\d{4})-(\d{2})/);
+  if (isoHead?.[1] && isoHead[2]) {
+    return `${isoHead[1]}-${isoHead[2]}`;
+  }
+
+  const br = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+  if (br?.[2] && br[3]) {
+    const mm = br[2].padStart(2, '0');
+    return `${br[3]}-${mm}`;
+  }
+
+  const d = parseLocalDateYmd(s);
+  if (!Number.isNaN(d.getTime())) {
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+  }
+
+  return null;
+}
