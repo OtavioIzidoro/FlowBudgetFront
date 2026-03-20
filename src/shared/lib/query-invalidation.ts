@@ -71,6 +71,7 @@ export async function invalidateTransactionRelatedQueries(queryClient: QueryClie
     queryClient.invalidateQueries({ queryKey: ['dashboard', 'evolution'] }),
     queryClient.invalidateQueries({ queryKey: ['dashboard', 'categorySpend'] }),
     queryClient.invalidateQueries({ queryKey: ['dashboard', 'savingsEvolution'] }),
+    queryClient.invalidateQueries({ queryKey: ['projections'] }),
   ]);
 
   await Promise.all([
@@ -79,5 +80,6 @@ export async function invalidateTransactionRelatedQueries(queryClient: QueryClie
     queryClient.refetchQueries({ queryKey: ['dashboard', 'evolution'], type: 'active' }),
     queryClient.refetchQueries({ queryKey: ['dashboard', 'categorySpend'], type: 'active' }),
     queryClient.refetchQueries({ queryKey: ['dashboard', 'savingsEvolution'], type: 'active' }),
+    queryClient.refetchQueries({ queryKey: ['projections'], type: 'active' }),
   ]);
 }

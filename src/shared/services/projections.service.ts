@@ -1,7 +1,9 @@
 import { getDashboardSummary } from '@/shared/services/dashboard.service';
+import type { DashboardSummary } from '@/shared/services/dashboard.service';
 import { getRecurringTemplates } from '@/shared/services/recurring.service';
 import { getTransactions } from '@/shared/services/transactions.service';
 import type { Transaction } from '@/entities/transaction/types';
+import { appLogger } from '@/shared/logger';
 
 export interface ProjectionPoint {
   date: string;
@@ -119,13 +121,53 @@ function getFutureAdjustments(transactions: Transaction[], now: Date): Map<strin
   return adjustments;
 }
 
+const emptySummary: DashboardSummary = {
+  currentBalance: 0,
+  monthlyIncome: 0,
+  monthlyExpenses: 0,
+  savingsPercent: 0,
+};
+
+function parseBalance(value: unknown): number {
+  const n = typeof value === 'number' ? value : Number(value);
+  return Number.isFinite(n) ? n : 0;
+}
+
 async function getProjectionBaseData(): Promise<ProjectionBaseData> {
   const now = new Date();
-  const [summary, transactions, recurringTemplates] = await Promise.all([
-    getDashboardSummary(),
-    getTransactions({ limit: 500 }),
-    getRecurringTemplates(),
-  ]);
+  let summary: DashboardSummary = emptySummary;
+  let transactions: Transaction[] = [];
+  let recurringTemplates: Awaited<ReturnType<typeof getRecurringTemplates>> = [];
+
+  try {
+    summary = await getDashboardSummary();
+  } catch (error) {
+    appLogger.warn('Falha ao carregar resumo para projeções', {
+      domain: 'projection',
+      event: 'projection.summary.error',
+      message: error instanceof Error ? error.message : String(error),
+    });
+  }
+
+  try {
+    transactions = await getTransactions({ limit: 500 });
+  } catch (error) {
+    appLogger.warn('Falha ao carregar transações para projeções', {
+      domain: 'projection',
+      event: 'projection.transactions.error',
+      message: error instanceof Error ? error.message : String(error),
+    });
+  }
+
+  try {
+    recurringTemplates = await getRecurringTemplates();
+  } catch (error) {
+    appLogger.warn('Falha ao carregar recorrências para projeções', {
+      domain: 'projection',
+      event: 'projection.recurring.error',
+      message: error instanceof Error ? error.message : String(error),
+    });
+  }
 
   const historical = getHistoricalAverages(transactions, now);
   const recurringIncome = recurringTemplates
@@ -139,7 +181,7 @@ async function getProjectionBaseData(): Promise<ProjectionBaseData> {
   const baseExpenses = historical.expenses || recurringExpenses;
 
   return {
-    currentBalance: summary.currentBalance,
+    currentBalance: parseBalance(summary.currentBalance),
     baseIncome,
     baseExpenses,
     monthCount: historical.monthCount,

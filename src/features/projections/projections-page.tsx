@@ -29,6 +29,7 @@ import {
   TrendingDown,
   TrendingUp,
 } from 'lucide-react';
+import { toServiceError } from '@/shared/lib/errors';
 
 const projectionCardClassName =
   'border-primary/10 bg-gradient-to-br from-card via-card to-primary/5 shadow-sm';
@@ -51,15 +52,30 @@ function getFirstNegativePoint<T extends { date: string; balance: number }>(poin
 }
 
 export function ProjectionsPage() {
-  const { data: projection, isLoading: projectionLoading } = useQuery({
+  const {
+    data: projection,
+    isLoading: projectionLoading,
+    isError: projectionError,
+    error: projectionErrorDetail,
+  } = useQuery({
     queryKey: ['projections', 'balance'],
     queryFn: getBalanceProjection,
   });
 
-  const { data: scenarios, isLoading: scenariosLoading } = useQuery({
+  const {
+    data: scenarios,
+    isLoading: scenariosLoading,
+    isError: scenariosError,
+    error: scenariosErrorDetail,
+  } = useQuery({
     queryKey: ['projections', 'scenarios'],
     queryFn: getProjectionScenarios,
   });
+
+  const loadError =
+    projectionError || scenariosError
+      ? toServiceError(projectionError ? projectionErrorDetail : scenariosErrorDetail)
+      : null;
 
   const projectionData = projection?.map((p) => ({
     ...p,
@@ -117,6 +133,14 @@ export function ProjectionsPage() {
   return (
     <div className="space-y-4 p-4 sm:space-y-6 sm:p-6">
       <h1 className="text-xl font-bold sm:text-2xl">Projeções</h1>
+
+      {loadError && (
+        <Alert variant="destructive">
+          <AlertTriangle className="h-4 w-4" />
+          <AlertTitle>Não foi possível carregar as projeções</AlertTitle>
+          <AlertDescription>{loadError.message}</AlertDescription>
+        </Alert>
+      )}
 
       {isLoading && (
         <>
