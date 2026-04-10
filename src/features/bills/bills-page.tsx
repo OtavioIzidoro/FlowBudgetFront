@@ -41,6 +41,13 @@ function monthKeyFromDate(d: Date): string {
   return format(startOfMonth(d), 'yyyy-MM');
 }
 
+function isPendingExpenseCarriedToCurrentMonth(t: Transaction, monthKey: string, todayMonthKey: string): boolean {
+  if (monthKey !== todayMonthKey) return false;
+  if (t.status !== 'pending') return false;
+  const txMonthKey = getYearMonthKeyFromTransactionDate(t.date);
+  return txMonthKey < todayMonthKey;
+}
+
 function buildMonthKeys(): string[] {
   const start = startOfMonth(new Date());
   return Array.from({ length: MONTH_WINDOW }, (_, i) => format(addMonths(start, i), 'yyyy-MM'));
@@ -71,7 +78,7 @@ function computeMonthSummaries(
     const bills = transactions.filter((t) => {
       if (t.status === 'cancelled') return false;
       const yyyyMm = getYearMonthKeyFromTransactionDate(t.date);
-      return yyyyMm === monthKey;
+      return yyyyMm === monthKey || isPendingExpenseCarriedToCurrentMonth(t, monthKey, todayMonthKey);
     });
     const txTotal = bills.reduce((acc, t) => acc + expenseAmountCents(t), 0);
     const paidFromTx = bills
@@ -157,7 +164,7 @@ export function BillsPage() {
     transactions?.filter((t) => {
       if (t.status === 'cancelled') return false;
       const yyyyMm = getYearMonthKeyFromTransactionDate(t.date);
-      return yyyyMm === selectedMonthKey;
+      return yyyyMm === selectedMonthKey || isPendingExpenseCarriedToCurrentMonth(t, selectedMonthKey, todayMonthKey);
     }) ?? [];
 
   const sortedBills = [...billsForSelectedMonth].sort(

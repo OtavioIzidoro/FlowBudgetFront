@@ -98,6 +98,16 @@ function parseTransactionDate(value: string): Date {
   return new Date(value);
 }
 
+function isPendingExpenseCarriedToCurrentMonth(transaction: {
+  type: TransactionType;
+  status: TransactionStatus;
+  date: string;
+}, selectedMonth: string): boolean {
+  if (selectedMonth !== getMonthKey(new Date())) return false;
+  if (transaction.type !== 'expense' || transaction.status !== 'pending') return false;
+  return transaction.date.slice(0, 7) < selectedMonth;
+}
+
 export function TransactionsPage() {
   const queryClient = useQueryClient();
   const openFromFab = useNewTransactionModalStore((s) => s.openFromFab);
@@ -194,16 +204,20 @@ export function TransactionsPage() {
       const yyyyMm = dateStr.slice(0, 7);
 
       if (monthFilter === 'upcoming-pending-expenses') {
+        const currentMonth = getMonthKey(new Date());
         const currentMonthStart = startOfMonth(new Date()).getTime();
+        const isOverduePendingExpense =
+          t.type === 'expense' && t.status === 'pending' && dateStr.slice(0, 7) < currentMonth;
         return (
           t.type === 'expense' &&
           t.status === 'pending' &&
-          parseTransactionDate(dateStr).getTime() >= currentMonthStart
+          (parseTransactionDate(dateStr).getTime() >= currentMonthStart || isOverduePendingExpense)
         );
       }
 
       if (!monthFilter) return true;
-      return yyyyMm === monthFilter;
+      if (yyyyMm === monthFilter) return true;
+      return isPendingExpenseCarriedToCurrentMonth(t, monthFilter);
     }) ?? [];
 
   const deleteRecurringMutation = useMutation({
