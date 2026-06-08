@@ -77,7 +77,7 @@ export async function confirmRecurringForMonth(
   const month = Number(monthPart);
   const day = getRecurringExecutionDay(year, month, template.dayOfMonth);
   const dateStr = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
-  return createTransaction({
+  const result = await createTransaction({
     type: template.type,
     value: template.value,
     categoryId: template.categoryId,
@@ -85,4 +85,11 @@ export async function confirmRecurringForMonth(
     status: options?.status ?? 'pending',
     description: template.description,
   });
+  if (Array.isArray(result)) {
+    if (!result[0]) {
+      throw new Error('Transação não criada');
+    }
+    return result[0];
+  }
+  return result;
 }

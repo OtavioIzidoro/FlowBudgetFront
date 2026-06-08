@@ -7,6 +7,7 @@ import { createTransaction, updateTransaction } from '@/shared/services/transact
 import { getTransactions } from '@/shared/services/transactions.service';
 import { createNotification } from '@/shared/services/notifications.service';
 import type { Transaction } from '@/entities/transaction/types';
+import { MAX_INSTALLMENTS, MAX_VALUE_CENTS } from '@/shared/config/constants';
 import type { Category } from '@/entities/category/types';
 import {
   Dialog,
@@ -41,21 +42,46 @@ import { ptBR } from 'date-fns/locale';
 import { getQuickTransactions, saveQuickTransaction } from '@/shared/lib/quick-transactions';
 import type { QuickTransaction } from '@/shared/lib/quick-transactions';
 
-const transactionSchema = z.object({
-  type: z.enum(['income', 'expense']),
-  value: z.string().min(1, 'Informe o valor'),
-  categoryId: z.string().min(1, 'Selecione a categoria'),
-  date: z.string().min(1, 'Informe a data'),
-  status: z.enum(['pending', 'completed', 'cancelled']),
-  description: z.string().optional(),
-  enableReminder: z.boolean().optional(),
-  reminderDays: z.coerce.number().min(1).max(30).optional(),
-  saveAsQuick: z.boolean().optional(),
-  installmentsTotal: z.coerce
-    .number()
-    .transform((v) => (Number.isNaN(v) ? 1 : v))
-    .pipe(z.number().int('Deve ser um número inteiro').min(1, 'Mínimo 1 parcela').max(100, 'Máximo 100 parcelas')),
-});
+const transactionSchema = z
+  .object({
+    type: z.enum(['income', 'expense']),
+    value: z.string().min(1, 'Informe o valor'),
+    categoryId: z.string().min(1, 'Selecione a categoria'),
+    date: z.string().min(1, 'Informe a data'),
+    status: z.enum(['pending', 'completed', 'cancelled']),
+    description: z.string().optional(),
+    enableReminder: z.boolean().optional(),
+    reminderDays: z.coerce.number().min(1).max(30).optional(),
+    saveAsQuick: z.boolean().optional(),
+    installmentsTotal: z.coerce
+      .number()
+      .transform((v) => (Number.isNaN(v) ? 1 : v))
+      .pipe(
+        z
+          .number()
+          .int('Deve ser um número inteiro')
+          .min(1, 'Mínimo 1 parcela')
+          .max(MAX_INSTALLMENTS, `Máximo ${MAX_INSTALLMENTS} parcelas`)
+      ),
+  })
+  .superRefine((data, ctx) => {
+    const cents = parseCurrencyInputToCents(data.value);
+    if (cents > MAX_VALUE_CENTS) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'Valor máximo permitido é R$ 100.000.000,00',
+        path: ['value'],
+      });
+    }
+    const installments = data.type === 'expense' ? (data.installmentsTotal ?? 1) : 1;
+    if (installments > 1 && cents < installments) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: `Valor mínimo para ${installments} parcelas é ${formatCurrency(installments)}`,
+        path: ['value'],
+      });
+    }
+  });
 
 type TransactionFormData = z.infer<typeof transactionSchema>;
 
@@ -101,7 +127,7 @@ interface TransactionFormDialogProps {
   onOpenChange: (open: boolean) => void;
   categories: Category[];
   transaction?: Transaction;
-  onSuccess: (transaction: Transaction) => void | Promise<void>;
+  onSuccess: (result: Transaction | Transaction[]) => void | Promise<void>;
 }
 
 export function TransactionFormDialog({
@@ -150,11 +176,18 @@ export function TransactionFormDialog({
       }
       return t;
     },
-    onSuccess: (savedTransaction) => {
+    onSuccess: (saved) => {
       void queryClient.invalidateQueries({ queryKey: ['notifications'] });
-      void onSuccess(savedTransaction);
+      void onSuccess(saved);
       onOpenChange(false);
-      useToastStore.getState().success(isEdit ? 'Transação atualizada.' : 'Transação criada.');
+      const isInstallmentCreate = !isEdit && Array.isArray(saved);
+      useToastStore.getState().success(
+        isEdit
+          ? 'Transação atualizada.'
+          : isInstallmentCreate
+            ? `${saved.length} parcelas criadas.`
+            : 'Transação criada.'
+      );
     },
     onError: (error: unknown) => {
       const err = toServiceError(error);
@@ -413,7 +446,7 @@ export function TransactionFormDialog({
                   id="installmentsTotal"
                   type="number"
                   min={1}
-                  max={100}
+                  max={MAX_INSTALLMENTS}
                   placeholder="1 = à vista"
                   {...register('installmentsTotal', { valueAsNumber: true })}
                 />

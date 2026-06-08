@@ -12,7 +12,12 @@ import {
   confirmRecurringForMonth,
 } from '@/shared/services/recurring.service';
 import { getCategories } from '@/shared/services/categories.service';
-import type { TransactionType, TransactionStatus } from '@/entities/transaction/types';
+import type {
+  InstallmentsScope,
+  TransactionType,
+  TransactionStatus,
+} from '@/entities/transaction/types';
+import { isInstallmentTransaction } from '@/entities/transaction/types';
 import { TransactionFormDialog } from '@/features/transactions/transaction-form-dialog';
 import { RecurringFormDialog } from '@/features/recurring/recurring-form-dialog';
 import type { RecurringTemplate } from '@/entities/recurring-template/types';
@@ -47,6 +52,7 @@ import { useToastStore } from '@/shared/store/toast-store';
 import { Skeleton } from '@/shared/ui/skeleton';
 import {
   invalidateTransactionRelatedQueries,
+  removeInstallmentGroupFromQueries,
   removeTransactionFromQueries,
   upsertTransactionInQueries,
 } from '@/shared/lib/query-invalidation';
@@ -272,13 +278,28 @@ export function TransactionsPage() {
     );
   };
 
+  const deletingTransaction = deletingId
+    ? transactions?.find((t) => t.id === deletingId)
+    : undefined;
+  const isDeletingInstallment =
+    deletingTransaction != null && isInstallmentTransaction(deletingTransaction);
+
   const deleteMutation = useMutation({
-    mutationFn: deleteTransaction,
-    onSuccess: async (_data, deletedTransactionId) => {
-      removeTransactionFromQueries(queryClient, deletedTransactionId);
+    mutationFn: ({ id, scope }: { id: string; scope: InstallmentsScope }) =>
+      deleteTransaction(id, scope),
+    onSuccess: async (result, { id, scope }) => {
+      if (scope === 'all' && result.installmentGroupId) {
+        removeInstallmentGroupFromQueries(queryClient, result.installmentGroupId);
+      } else {
+        removeTransactionFromQueries(queryClient, id);
+      }
       await invalidateTransactionRelatedQueries(queryClient);
       setDeletingId(null);
-      useToastStore.getState().success('Transação removida.');
+      const message =
+        result.deletedCount > 1
+          ? `${result.deletedCount} parcelas removidas.`
+          : 'Transação removida.';
+      useToastStore.getState().success(message);
     },
     onError: (error: unknown) => {
       const err = toServiceError(error);
@@ -659,7 +680,7 @@ export function TransactionsPage() {
                         )}
                       </td>
                       <td className="py-2 text-muted-foreground">
-                        {t.installmentsTotal != null && t.installmentsTotal > 1
+                        {isInstallmentTransaction(t)
                           ? `${t.installmentNumber ?? '-'}/${t.installmentsTotal}`
                           : '—'}
                       </td>
@@ -711,10 +732,14 @@ export function TransactionsPage() {
           open={creating}
           onOpenChange={(open) => setCreating(open)}
           categories={categories ?? []}
-          onSuccess={async (savedTransaction) => {
-            upsertTransactionInQueries(queryClient, savedTransaction);
+          onSuccess={async (saved) => {
+            if (Array.isArray(saved)) {
+              await invalidateTransactionRelatedQueries(queryClient);
+            } else {
+              upsertTransactionInQueries(queryClient, saved);
+              await invalidateTransactionRelatedQueries(queryClient);
+            }
             setCreating(false);
-            await invalidateTransactionRelatedQueries(queryClient);
           }}
         />
       )}
@@ -739,8 +764,10 @@ export function TransactionsPage() {
           onOpenChange={(open) => !open && setEditingId(null)}
           categories={categories ?? []}
           transaction={transactions.find((t) => t.id === editingId) ?? undefined}
-          onSuccess={async (savedTransaction) => {
-            upsertTransactionInQueries(queryClient, savedTransaction);
+          onSuccess={async (saved) => {
+            if (!Array.isArray(saved)) {
+              upsertTransactionInQueries(queryClient, saved);
+            }
             setEditingId(null);
             await invalidateTransactionRelatedQueries(queryClient);
           }}
@@ -766,17 +793,41 @@ export function TransactionsPage() {
           <AlertDialogHeader>
             <AlertDialogTitle>Excluir transação</AlertDialogTitle>
             <AlertDialogDescription>
-              Esta ação não pode ser desfeita.
+              {isDeletingInstallment
+                ? 'Esta transação faz parte de um parcelamento. O que deseja excluir?'
+                : 'Esta ação não pode ser desfeita.'}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancelar</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={() => deletingId && deleteMutation.mutate(deletingId)}
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-            >
-              Excluir
-            </AlertDialogAction>
+            {isDeletingInstallment ? (
+              <>
+                <AlertDialogAction
+                  onClick={() =>
+                    deletingId && deleteMutation.mutate({ id: deletingId, scope: 'one' })
+                  }
+                >
+                  Excluir apenas esta parcela
+                </AlertDialogAction>
+                <AlertDialogAction
+                  onClick={() =>
+                    deletingId && deleteMutation.mutate({ id: deletingId, scope: 'all' })
+                  }
+                  className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                >
+                  Excluir todo o parcelamento ({deletingTransaction?.installmentsTotal} parcelas)
+                </AlertDialogAction>
+              </>
+            ) : (
+              <AlertDialogAction
+                onClick={() =>
+                  deletingId && deleteMutation.mutate({ id: deletingId, scope: 'one' })
+                }
+                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              >
+                Excluir
+              </AlertDialogAction>
+            )}
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>

@@ -5,3 +5,6 @@ export const COMPANY_NAME = 'Izitec';
 export const MOCK_DELAY_MS = 400;
 
 export const SUPER_ADMIN_EMAILS = ['admin@flowbudget.app', 'demo@flowbudget.com', 'otavio29mar@gmail.com'];
+
+export const MAX_INSTALLMENTS = 360;
+export const MAX_VALUE_CENTS = 10_000_000_000;

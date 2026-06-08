@@ -1,4 +1,9 @@
-import type { Transaction, TransactionType } from '@/entities/transaction/types';
+import type {
+  DeleteTransactionResponse,
+  InstallmentsScope,
+  Transaction,
+  TransactionType,
+} from '@/entities/transaction/types';
 import { apiRequest } from '@/shared/services/api-client';
 import { appLogger } from '@/shared/logger';
 
@@ -48,8 +53,8 @@ export interface CreateTransactionInput {
 
 export async function createTransaction(
   input: CreateTransactionInput
-): Promise<Transaction> {
-  const data = await apiRequest<Transaction>('/transactions', {
+): Promise<Transaction | Transaction[]> {
+  const data = await apiRequest<Transaction | Transaction[]>('/transactions', {
     method: 'POST',
     body: {
       type: input.type,
@@ -61,12 +66,22 @@ export async function createTransaction(
       installmentsTotal: input.installmentsTotal ?? 1,
     },
   });
-  appLogger.info('Transação criada', {
-    domain: 'transaction',
-    event: 'transaction.created',
-    transactionId: data.id,
-    type: data.type,
-  });
+  if (Array.isArray(data)) {
+    appLogger.info('Transações parceladas criadas', {
+      domain: 'transaction',
+      event: 'transaction.created.installments',
+      count: data.length,
+      installmentGroupId: data[0]?.installmentGroupId,
+      type: input.type,
+    });
+  } else {
+    appLogger.info('Transação criada', {
+      domain: 'transaction',
+      event: 'transaction.created',
+      transactionId: data.id,
+      type: data.type,
+    });
+  }
   return data;
 }
 
@@ -90,13 +105,21 @@ export async function updateTransaction(
   return data;
 }
 
-export async function deleteTransaction(id: string): Promise<void> {
-  await apiRequest<{ success: boolean }>(`/transactions/${id}`, {
+export async function deleteTransaction(
+  id: string,
+  installmentsScope: InstallmentsScope = 'one'
+): Promise<DeleteTransactionResponse> {
+  const data = await apiRequest<DeleteTransactionResponse>(`/transactions/${id}`, {
     method: 'DELETE',
+    params: installmentsScope === 'all' ? { installmentsScope: 'all' } : undefined,
   });
   appLogger.info('Transação removida', {
     domain: 'transaction',
     event: 'transaction.deleted',
     transactionId: id,
+    deletedCount: data.deletedCount,
+    installmentGroupId: data.installmentGroupId,
+    installmentsScope,
   });
+  return data;
 }

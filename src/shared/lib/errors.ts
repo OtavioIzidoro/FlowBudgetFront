@@ -28,8 +28,18 @@ export function isServiceError(value: unknown): value is ServiceError {
   );
 }
 
+const TRANSACTION_ERROR_MESSAGES: Record<string, string> = {
+  INVALID_INSTALLMENTS: 'Número de parcelas inválido. Use entre 1 e 360.',
+  VALUE_TOO_LOW_FOR_INSTALLMENTS:
+    'O valor total deve ser pelo menos igual ao número de parcelas (cada parcela ≥ R$ 0,01).',
+};
+
 export function toServiceError(error: unknown): ServiceError {
   if (isServiceError(error)) {
+    const mappedMessage = TRANSACTION_ERROR_MESSAGES[error.code];
+    if (mappedMessage) {
+      return { ...error, message: mappedMessage };
+    }
     return error;
   }
   if (error instanceof Error) {

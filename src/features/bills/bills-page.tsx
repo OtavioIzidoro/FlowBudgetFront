@@ -45,7 +45,7 @@ function isPendingExpenseCarriedToCurrentMonth(t: Transaction, monthKey: string,
   if (monthKey !== todayMonthKey) return false;
   if (t.status !== 'pending') return false;
   const txMonthKey = getYearMonthKeyFromTransactionDate(t.date);
-  return txMonthKey < todayMonthKey;
+  return txMonthKey != null && txMonthKey < todayMonthKey;
 }
 
 function buildMonthKeys(): string[] {

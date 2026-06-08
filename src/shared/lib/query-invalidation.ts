@@ -64,6 +64,26 @@ export function removeTransactionFromQueries(queryClient: QueryClient, transacti
   });
 }
 
+export function removeInstallmentGroupFromQueries(
+  queryClient: QueryClient,
+  installmentGroupId: string
+) {
+  const queries = queryClient.getQueriesData<Transaction[]>({
+    queryKey: ['transactions'],
+  });
+
+  queries.forEach(([queryKey, queryData]) => {
+    if (!queryData) {
+      return;
+    }
+
+    queryClient.setQueryData(
+      queryKey,
+      queryData.filter((item) => item.installmentGroupId !== installmentGroupId)
+    );
+  });
+}
+
 export async function invalidateTransactionRelatedQueries(queryClient: QueryClient) {
   await Promise.all([
     queryClient.invalidateQueries({ queryKey: ['transactions'] }),
